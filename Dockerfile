@@ -8,13 +8,16 @@
 
 FROM nginx:alpine
 
+# curl + jq: used by entrypoint.sh to fetch and parse EIA data at startup
+RUN apk add --no-cache curl jq
+
 # Remove default nginx content
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy static files
 COPY public /usr/share/nginx/html
 
-# nginx config — gzip, security headers, SPA fallback
+# nginx config — gzip, security headers, SPA fallback, 1h cache on /data/
 RUN printf 'server {\n\
     listen 80;\n\
     root /usr/share/nginx/html;\n\
@@ -24,6 +27,9 @@ RUN printf 'server {\n\
     gzip_types text/plain text/css application/javascript application/json;\n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
+    }\n\
+    location /data/ {\n\
+        add_header Cache-Control "public, max-age=3600";\n\
     }\n\
     add_header X-Frame-Options SAMEORIGIN;\n\
     add_header X-Content-Type-Options nosniff;\n\
