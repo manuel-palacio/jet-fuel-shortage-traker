@@ -534,12 +534,12 @@
           <div class="chart-card">
             <div class="chart-header">
               <div>
-                <div class="chart-title">Cancellations by Airline</div>
-                <div class="chart-subtitle">Total known canceled flights per carrier (filtered)</div>
+                <div class="chart-title">Cancellations Over Time</div>
+                <div class="chart-subtitle">Canceled flights by airline · each point = a disruption event</div>
               </div>
             </div>
             <div class="chart-canvas-wrap" style="height:200px;">
-              <canvas id="bar-chart" aria-label="Cancellations by airline bar chart" role="img"></canvas>
+              <canvas id="timeline-chart" aria-label="Cancellations over time by airline line chart" role="img"></canvas>
             </div>
           </div>
           <div class="chart-card">
@@ -1124,7 +1124,7 @@ function renderTable(rows) {
    SECTION 8 — RENDER: CHARTS
    ================================================================ */
 
-let fuelChartInst=null, barChartInst=null, donutChartInst=null;
+let fuelChartInst=null, timelineChartInst=null, donutChartInst=null;
 
 function cc() {
   const s = getComputedStyle(document.documentElement);
@@ -1194,32 +1194,66 @@ function renderFuelChart() {
   });
 }
 
-function renderBarChart(rows) {
+function renderTimelineChart(rows) {
   const colors = cc();
-  const ctx = document.getElementById('bar-chart').getContext('2d');
-  if (barChartInst) barChartInst.destroy();
+  const ctx = document.getElementById('timeline-chart').getContext('2d');
+  if (timelineChartInst) timelineChartInst.destroy();
 
-  const byAirline = {};
-  for (const d of rows) byAirline[d.airline] = (byAirline[d.airline]||0)+d.cancellations;
-  const airlines = SEED_AIRLINES.map(a=>a.name);
-  const counts   = airlines.map(a=>byAirline[a]||0);
-  const bgs      = counts.map(c => c>=40 ? colors.critical : c>=15 ? colors.high : c>0 ? colors.info : colors.grid);
+  // Use first timeline entry date (disruption start) for a richer x-axis spread
+  const eventDate = d => (d.timeline && d.timeline[0] && d.timeline[0].date) || d.updated_at.slice(0,10);
 
-  barChartInst = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels: airlines.map(a=>a.replace(' Airlines','').replace('Air New Zealand','Air NZ')),
-      datasets:[{label:'Canceled', data:counts, backgroundColor:bgs, borderRadius:4, borderSkipped:false}],
-    },
+  // All unique dates, sorted
+  const dateSet = new Set(rows.map(eventDate));
+  const allDates = [...dateSet].sort();
+
+  // One dataset per airline
+  const airlineNames = [...new Set(rows.map(d=>d.airline))].sort();
+  const palette = [colors.info, colors.purple, colors.critical, colors.accent, colors.high, colors.medium];
+  const shortLabel = a => a.replace(' Airlines','').replace('Air New Zealand','Air NZ');
+
+  const datasets = airlineNames.map((airline, i) => {
+    const events = rows.filter(d => d.airline === airline);
+    // Sum cancellations per date (multiple events on same date → add up)
+    const byDate = {};
+    for (const e of events) { const d = eventDate(e); byDate[d] = (byDate[d]||0) + e.cancellations; }
+    const data = allDates.map(d => byDate[d] !== undefined ? byDate[d] : null);
+    const color = palette[i % palette.length];
+    return {
+      label: shortLabel(airline),
+      data,
+      borderColor: color,
+      backgroundColor: hexAlpha(color, 0.12),
+      pointBackgroundColor: color,
+      pointBorderColor: color,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      borderWidth: 2,
+      spanGaps: false,
+      tension: 0,
+      fill: false,
+    };
+  });
+
+  timelineChartInst = new Chart(ctx, {
+    type:'line',
+    data:{ labels: allDates, datasets },
     options:{
       responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
       plugins:{
-        legend:{display:false},
-        tooltip:{backgroundColor:colors.elevated,titleColor:colors.txt,bodyColor:colors.accent,borderColor:colors.grid,borderWidth:1,padding:10,callbacks:{label:c=>' '+c.parsed.y+' canceled'}},
+        legend:{ display:true, position:'bottom', labels:{ color:colors.txt, font:{family:"'Outfit'",size:11}, boxWidth:10, padding:12, usePointStyle:true } },
+        tooltip:{
+          backgroundColor:colors.elevated, titleColor:colors.txt, bodyColor:colors.txt,
+          borderColor:colors.grid, borderWidth:1, padding:10,
+          callbacks:{
+            label: c => c.parsed.y !== null ? ` ${c.dataset.label}: ${c.parsed.y} canceled` : null,
+            filter: item => item.parsed.y !== null,
+          },
+        },
       },
       scales:{
-        x:{grid:{display:false}, ticks:{color:colors.txt,font:{family:"'Outfit'",size:11}}, border:{display:false}},
-        y:{grid:{color:colors.grid}, ticks:{color:colors.txt,font:{family:"'JetBrains Mono'",size:10},stepSize:10}, border:{display:false}},
+        x:{ grid:{color:colors.grid}, ticks:{color:colors.txt, font:{family:"'JetBrains Mono'",size:10}, maxRotation:0}, border:{display:false} },
+        y:{ grid:{color:colors.grid}, ticks:{color:colors.txt, font:{family:"'JetBrains Mono'",size:10}, stepSize:10}, border:{display:false}, beginAtZero:true },
       },
     },
   });
@@ -1363,7 +1397,7 @@ function applyAndRender() {
   const rows = sortDisruptions(getFilteredDisruptions());
   renderKPIs(AppState.disruptions, AppState.fuelPrices);
   renderTable(rows);
-  renderBarChart(rows);
+  renderTimelineChart(rows);
   renderDonutChart(rows);
 }
 
