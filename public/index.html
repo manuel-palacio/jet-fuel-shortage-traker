@@ -522,7 +522,7 @@
           <div class="chart-header">
             <div>
               <div class="chart-title">Jet Fuel / Kerosene Price History</div>
-              <div class="chart-subtitle">US Gulf Coast Kerosene · $/gallon · Reference: EIA WJFUELUSGULF</div>
+              <div class="chart-subtitle">US Gulf Coast Kerosene-Type Jet Fuel Spot Price · $/gallon · EIA EPJK/RGC</div>
             </div>
             <span class="chart-badge" id="fuel-badge">—</span>
           </div>
@@ -898,19 +898,24 @@ async function fetchFuelPrices() {
   const key = (window.FUELWATCH_CONFIG || {}).EIA_API_KEY;
   if (key) {
     try {
-      // EIA v2 API — weekly US Gulf Coast kerosene (product EPD2F)
-      const url = `https://api.eia.gov/v2/petroleum/pri/wfr/data/?api_key=${encodeURIComponent(key)}`
-        + `&frequency=weekly&data[0]=value&facets[product][]=EPD2F`
-        + `&sort[0][column]=period&sort[0][direction]=asc&length=70`;
+      // EIA v2 spot prices — US Gulf Coast Kerosene-Type Jet Fuel (EPJK/RGC)
+      // Endpoint: /v2/petroleum/pri/spt/  (spot prices, not retail /wfr/)
+      // Product:  EPJK  — Kerosene-Type Jet Fuel
+      // Area:     RGC   — U.S. Gulf Coast
+      const url = `https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${encodeURIComponent(key)}`
+        + `&frequency=weekly&data[0]=value`
+        + `&facets[product][]=EPJK&facets[duoarea][]=RGC`
+        + `&start=2023-01-01`
+        + `&sort[0][column]=period&sort[0][direction]=desc&length=200`;
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`EIA API ${resp.status}`);
       const json = await resp.json();
-      // EIA v2 shape: { response: { data: [{ period, value, ... }] } }
+      // EIA v2 shape: { response: { data: [{ period, value, units, ... }] } }
       const rows = (json?.response?.data || []).map(r => ({
         date:      r.period,
         price:     r.value,
-        source:    'EIA WJFUELUSGULF (live)',
-        series_id: 'WJFUELUSGULF',
+        source:    'EIA EPJK/RGC (live)',
+        series_id: 'EPJK_RGC',
       }));
       if (rows.length) return normalizeFuelPriceData(rows);
       console.warn('EIA API returned no rows — falling back to seed data');
