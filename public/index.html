@@ -630,7 +630,22 @@
    innerHTML. Strings containing only text use textContent directly.
    ---------------------------------------------------------------- */
 function safeHTML(el, html) {
-  el.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'] });
+  const tag = el.tagName ? el.tagName.toLowerCase() : '';
+  // tbody/thead: DOMPurify parses in a div context, which causes the browser
+  // to "foster-parent" tr/td out of the table — wrap in table context first.
+  if (tag === 'tbody' || tag === 'thead') {
+    const clean = DOMPurify.sanitize(
+      `<table><${tag}>${html}</${tag}></table>`,
+      { ADD_ATTR: ['target', 'rel'] }
+    );
+    const tmp = document.createElement('div');
+    tmp.innerHTML = clean;
+    const inner = tmp.querySelector(tag);
+    el.innerHTML = '';
+    if (inner) while (inner.firstChild) el.appendChild(inner.firstChild);
+  } else {
+    el.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'] });
+  }
 }
 
 /* ================================================================
