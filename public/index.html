@@ -888,42 +888,24 @@ const SEED_FUEL_PRICES = [
 
 /**
  * fetchFuelPrices()
- * Uses the EIA API if an EIA_API_KEY is available via Fly.io secrets,
- * otherwise falls back to seeded data.
+ * Loads pre-fetched EIA data from /data/fuel-prices.json, which is written
+ * server-side by entrypoint.sh at container start (no API key in the browser).
+ * Falls back to seeded data if the file is absent (local dev).
  *
- * Set your key with:  fly secrets set EIA_API_KEY=your_key_here
- * Get a free key at:  https://www.eia.gov/opendata/
+ * To refresh data without a full redeploy:
+ *   fly machines restart --app fuelwatch-dashboard
  */
 async function fetchFuelPrices() {
-  const key = (window.FUELWATCH_CONFIG || {}).EIA_API_KEY;
-  if (key) {
-    try {
-      // EIA v2 spot prices — US Gulf Coast Kerosene-Type Jet Fuel (EPJK/RGC)
-      // Endpoint: /v2/petroleum/pri/spt/  (spot prices, not retail /wfr/)
-      // Product:  EPJK  — Kerosene-Type Jet Fuel
-      // Area:     RGC   — U.S. Gulf Coast
-      const url = `https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${encodeURIComponent(key)}`
-        + `&frequency=weekly&data[0]=value`
-        + `&facets[product][]=EPJK&facets[duoarea][]=RGC`
-        + `&start=2023-01-01`
-        + `&sort[0][column]=period&sort[0][direction]=desc&length=200`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`EIA API ${resp.status}`);
-      const json = await resp.json();
-      // EIA v2 shape: { response: { data: [{ period, value, units, ... }] } }
-      const rows = (json?.response?.data || []).map(r => ({
-        date:      r.period,
-        price:     r.value,
-        source:    'EIA EPJK/RGC (live)',
-        series_id: 'EPJK_RGC',
-      }));
-      if (rows.length) return normalizeFuelPriceData(rows);
-      console.warn('EIA API returned no rows — falling back to seed data');
-    } catch (err) {
-      console.warn('EIA API fetch failed, using seed data:', err.message);
-    }
+  try {
+    const resp = await fetch('/data/fuel-prices.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const raw = await resp.json();
+    if (Array.isArray(raw) && raw.length) return normalizeFuelPriceData(raw);
+    throw new Error('Empty data file');
+  } catch (err) {
+    console.info('fuel-prices.json not available, using seed data:', err.message);
+    return normalizeFuelPriceData(SEED_FUEL_PRICES);
   }
-  return normalizeFuelPriceData(SEED_FUEL_PRICES);
 }
 
 /**
