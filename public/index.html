@@ -15,6 +15,10 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <!-- Runtime config — written by entrypoint.sh from Fly.io secrets.
+       Falls back gracefully if the file is absent (local dev). -->
+  <script>window.FUELWATCH_CONFIG = window.FUELWATCH_CONFIG || {};</script>
+  <script src="/config.js" onerror="console.info('config.js not found — using seed data')"></script>
 
   <style>
     /* ============================================================
@@ -868,12 +872,36 @@ const SEED_FUEL_PRICES = [
 
 /**
  * fetchFuelPrices()
- * Returns normalized fuel price records.
- * REPLACE the body with a fetch() call to your live source:
- *   const r = await fetch('/data/fuel-prices.json');  // static JSON sync
- *   return normalizeFuelPriceData(await r.json());
+ * Uses the EIA API if an EIA_API_KEY is available via Fly.io secrets,
+ * otherwise falls back to seeded data.
+ *
+ * Set your key with:  fly secrets set EIA_API_KEY=your_key_here
+ * Get a free key at:  https://www.eia.gov/opendata/
  */
 async function fetchFuelPrices() {
+  const key = (window.FUELWATCH_CONFIG || {}).EIA_API_KEY;
+  if (key) {
+    try {
+      // EIA v2 API — weekly US Gulf Coast kerosene (product EPD2F)
+      const url = `https://api.eia.gov/v2/petroleum/pri/wfr/data/?api_key=${encodeURIComponent(key)}`
+        + `&frequency=weekly&data[0]=value&facets[product][]=EPD2F`
+        + `&sort[0][column]=period&sort[0][direction]=asc&length=70`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`EIA API ${resp.status}`);
+      const json = await resp.json();
+      // EIA v2 shape: { response: { data: [{ period, value, ... }] } }
+      const rows = (json?.response?.data || []).map(r => ({
+        date:      r.period,
+        price:     r.value,
+        source:    'EIA WJFUELUSGULF (live)',
+        series_id: 'WJFUELUSGULF',
+      }));
+      if (rows.length) return normalizeFuelPriceData(rows);
+      console.warn('EIA API returned no rows — falling back to seed data');
+    } catch (err) {
+      console.warn('EIA API fetch failed, using seed data:', err.message);
+    }
+  }
   return normalizeFuelPriceData(SEED_FUEL_PRICES);
 }
 
