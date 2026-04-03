@@ -1361,7 +1361,7 @@ function populateFilterOptions() {
 
 function applyAndRender() {
   const rows = sortDisruptions(getFilteredDisruptions());
-  renderKPIs(rows, AppState.fuelPrices);
+  renderKPIs(AppState.disruptions, AppState.fuelPrices);
   renderTable(rows);
   renderBarChart(rows);
   renderDonutChart(rows);
