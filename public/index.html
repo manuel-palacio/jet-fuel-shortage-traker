@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Real-time aviation fuel shortage tracker — airline disruptions, kerosene prices, and route impacts." />
+  <title>FuelWatch — Aviation Kerosene Disruption Tracker</title>
+
+  <!-- Fonts: Syne (display title), Outfit (UI), JetBrains Mono (data/numbers) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- DOMPurify — XSS sanitizer used for all innerHTML assignments -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ============================================================
+       DESIGN TOKENS
+       ============================================================ */
+    :root {
+      --space-1:4px;  --space-2:8px;   --space-3:12px;
+      --space-4:16px; --space-5:20px;  --space-6:24px;
+      --space-8:32px; --space-10:40px; --space-12:48px;
+      --radius-sm:4px; --radius:8px; --radius-lg:12px;
+      --transition:180ms ease; --transition-slow:320ms ease;
+      --header-h:64px; --filter-h:56px;
+      --z-header:100; --z-filter:90; --z-overlay:190; --z-drawer:200;
+      --font-display:'Syne',sans-serif;
+      --font-ui:'Outfit',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+    }
+    [data-theme="dark"] {
+      --bg-base:#080b10; --bg-surface:#0d1117; --bg-elevated:#131a24; --bg-hover:#192130;
+      --border:rgba(255,255,255,.06); --border-mid:rgba(255,255,255,.10); --border-strong:rgba(255,255,255,.16);
+      --text-primary:#dde4f0; --text-secondary:#7a8fa8; --text-muted:#40526a;
+      --shadow-sm:0 1px 4px rgba(0,0,0,.5); --shadow:0 4px 16px rgba(0,0,0,.6); --shadow-lg:0 12px 40px rgba(0,0,0,.7);
+      --accent:#f59e0b; --accent-dim:rgba(245,158,11,.12); --accent-glow:rgba(245,158,11,.25);
+      --c-critical:#f43f5e; --c-critical-dim:rgba(244,63,94,.14);
+      --c-high:#fb923c;     --c-high-dim:rgba(251,146,60,.14);
+      --c-medium:#fbbf24;   --c-medium-dim:rgba(251,191,36,.14);
+      --c-low:#34d399;      --c-low-dim:rgba(52,211,153,.14);
+      --c-info:#60a5fa;     --c-info-dim:rgba(96,165,250,.14);
+      --c-purple:#a78bfa;   --c-purple-dim:rgba(167,139,250,.14);
+      --chart-grid:rgba(255,255,255,.05); --chart-txt:#5a6e85;
+    }
+    [data-theme="light"] {
+      --bg-base:#eef1f7; --bg-surface:#ffffff; --bg-elevated:#f5f7fb; --bg-hover:#edf0f8;
+      --border:rgba(0,0,0,.07); --border-mid:rgba(0,0,0,.11); --border-strong:rgba(0,0,0,.18);
+      --text-primary:#1a202c; --text-secondary:#4a5568; --text-muted:#a0aec0;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.10); --shadow:0 4px 12px rgba(0,0,0,.12); --shadow-lg:0 12px 32px rgba(0,0,0,.18);
+      --accent:#d97706; --accent-dim:rgba(217,119,6,.10); --accent-glow:rgba(217,119,6,.20);
+      --c-critical:#dc2626; --c-critical-dim:rgba(220,38,38,.08);
+      --c-high:#ea580c;     --c-high-dim:rgba(234,88,12,.08);
+      --c-medium:#d97706;   --c-medium-dim:rgba(217,119,6,.08);
+      --c-low:#059669;      --c-low-dim:rgba(5,150,105,.08);
+      --c-info:#2563eb;     --c-info-dim:rgba(37,99,235,.08);
+      --c-purple:#7c3aed;   --c-purple-dim:rgba(124,58,237,.08);
+      --chart-grid:rgba(0,0,0,.06); --chart-txt:#94a3b8;
+    }
+
+    /* ============================================================ RESET */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{
+      font-family:var(--font-ui);font-size:14px;line-height:1.5;
+      background:var(--bg-base);color:var(--text-primary);
+      transition:background var(--transition-slow),color var(--transition-slow);
+      overflow-x:hidden;
+    }
+    a{color:var(--accent);text-decoration:none;}
+    a:hover{text-decoration:underline;}
+    button{font-family:var(--font-ui);cursor:pointer;border:none;background:none;}
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+      outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius-sm);
+    }
+    input,select{font-family:var(--font-ui);}
+    ::-webkit-scrollbar{width:6px;height:6px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px;}
+    ::-webkit-scrollbar-thumb:hover{background:var(--text-muted);}
+
+    /* ============================================================ HEADER */
+    .site-header{
+      position:sticky;top:0;z-index:var(--z-header);height:var(--header-h);
+      background:var(--bg-surface);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:0 var(--space-6);gap:var(--space-4);
+      backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    }
+    .header-brand{display:flex;align-items:baseline;gap:var(--space-3);flex-shrink:0;}
+    .brand-logo{
+      font-family:var(--font-display);font-size:20px;font-weight:800;
+      letter-spacing:-.5px;color:var(--accent);line-height:1;
+    }
+    .brand-logo span{color:var(--text-primary);}
+    .brand-sub{
+      font-size:11px;font-weight:500;color:var(--text-muted);
+      letter-spacing:.08em;text-transform:uppercase;display:none;
+    }
+    @media(min-width:640px){.brand-sub{display:block;}}
+    .header-live{
+      display:flex;align-items:center;gap:var(--space-2);
+      font-family:var(--font-mono);font-size:11px;color:var(--text-muted);flex-shrink:0;
+    }
+    .live-dot{
+      width:7px;height:7px;border-radius:50%;background:var(--c-low);
+      animation:pulse-live 2.4s ease-in-out infinite;flex-shrink:0;
+    }
+    @keyframes pulse-live{0%,100%{opacity:1;}50%{opacity:.3;}}
+    .header-spacer{flex:1;}
+    .header-ts{
+      font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+      white-space:nowrap;display:none;
+    }
+    @media(min-width:768px){.header-ts{display:block;}}
+    .theme-toggle{
+      min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+      border-radius:var(--radius);color:var(--text-secondary);
+      transition:background var(--transition),color var(--transition);font-size:18px;flex-shrink:0;
+    }
+    .theme-toggle:hover{background:var(--bg-hover);color:var(--text-primary);}
+
+    /* ============================================================ FILTER BAR */
+    .filter-bar{
+      position:sticky;top:var(--header-h);z-index:var(--z-filter);
+      background:var(--bg-surface);border-bottom:1px solid var(--border);
+      padding:0 var(--space-6);
+      display:flex;align-items:center;gap:var(--space-3);
+      height:var(--filter-h);overflow-x:auto;-webkit-overflow-scrolling:touch;
+    }
+    .filter-bar::-webkit-scrollbar{height:0;}
+    .filter-label{font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;}
+    .filter-divider{width:1px;height:20px;background:var(--border-mid);flex-shrink:0;}
+    .filter-select,.filter-search{
+      height:34px;background:var(--bg-elevated);border:1px solid var(--border-mid);
+      border-radius:var(--radius);color:var(--text-primary);font-size:13px;
+      transition:border-color var(--transition),background var(--transition);flex-shrink:0;
+    }
+    .filter-select{
+      padding:0 28px 0 var(--space-3);min-width:130px;
+      appearance:none;-webkit-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8fa8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 10px center;
+    }
+    .filter-select:hover,.filter-search:hover{border-color:var(--border-strong);}
+    .filter-select:focus,.filter-search:focus{border-color:var(--accent);background:var(--bg-hover);outline:none;}
+    .filter-search{
+      padding:0 var(--space-3) 0 32px;min-width:180px;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237a8fa8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:10px center;background-color:var(--bg-elevated);
+    }
+    .filter-search::placeholder{color:var(--text-muted);}
+    .filter-clear{
+      height:34px;padding:0 var(--space-3);border-radius:var(--radius);
+      font-size:12px;font-weight:500;color:var(--text-muted);
+      border:1px solid var(--border-mid);background:transparent;
+      transition:all var(--transition);flex-shrink:0;white-space:nowrap;min-width:44px;
+    }
+    .filter-clear:hover{border-color:var(--c-critical);color:var(--c-critical);}
+
+    /* ============================================================ MAIN */
+    .main-content{padding:var(--space-6);max-width:1440px;margin:0 auto;}
+    @media(max-width:640px){.main-content{padding:var(--space-4);}}
+    .hidden{display:none!important;}
+
+    /* ============================================================ STATE PANELS */
+    .state-panel{
+      display:flex;flex-direction:column;align-items:center;
+      justify-content:center;min-height:320px;gap:var(--space-4);text-align:center;
+    }
+    .skeleton-grid{
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+      gap:var(--space-4);width:100%;max-width:900px;
+    }
+    .skeleton-card{
+      height:96px;background:var(--bg-elevated);border-radius:var(--radius-lg);
+      overflow:hidden;position:relative;
+    }
+    .skeleton-card::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(90deg,transparent 0%,var(--border-mid) 50%,transparent 100%);
+      background-size:200% 100%;animation:shimmer 1.6s ease-in-out infinite;
+    }
+    @keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+    .state-icon{font-size:40px;opacity:.6;}
+    .state-title{font-size:16px;font-weight:600;color:var(--text-primary);}
+    .state-sub{font-size:13px;color:var(--text-secondary);max-width:320px;}
+    .retry-btn{
+      margin-top:12px;padding:10px 24px;border-radius:var(--radius);
+      background:var(--accent);color:#000;font-weight:600;font-size:13px;
+      min-height:44px;border:none;cursor:pointer;font-family:var(--font-ui);
+      transition:opacity var(--transition);
+    }
+    .retry-btn:hover{opacity:.85;}
+
+    /* ============================================================ KPI CARDS */
+    .kpi-grid{
+      display:grid;grid-template-columns:repeat(2,1fr);
+      gap:var(--space-4);margin-bottom:var(--space-6);
+    }
+    @media(min-width:640px){.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(min-width:1024px){.kpi-grid{grid-template-columns:repeat(6,1fr);}}
+    .kpi-card{
+      background:var(--bg-surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);padding:var(--space-5);
+      position:relative;overflow:hidden;
+      transition:border-color var(--transition),box-shadow var(--transition);
+    }
+    .kpi-card:hover{border-color:var(--border-mid);box-shadow:var(--shadow-sm);}
+    .kpi-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:var(--kpi-accent,var(--accent));opacity:.7;
+    }
+    .kpi-label{
+      font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--text-muted);margin-bottom:var(--space-3);
+    }
+    .kpi-value{
+      font-family:var(--font-mono);font-size:26px;font-weight:600;
+      color:var(--text-primary);line-height:1;margin-bottom:var(--space-2);letter-spacing:-.5px;
+    }
+    .kpi-value.accent{color:var(--accent);}
+    .kpi-delta{
+      font-family:var(--font-mono);font-size:11px;font-weight:600;
+      display:inline-flex;align-items:center;gap:3px;
+      padding:2px 6px;border-radius:var(--radius-sm);
+    }
+    .kpi-delta.up{color:var(--c-critical);background:var(--c-critical-dim);}
+    .kpi-delta.down{color:var(--c-low);background:var(--c-low-dim);}
+    .kpi-delta.neutral{color:var(--text-muted);background:var(--bg-elevated);}
+    .kpi-sub{font-size:11px;color:var(--text-muted);margin-top:var(--space-1);}
+
+    /* ============================================================ CHARTS */
+    .charts-section{display:flex;flex-direction:column;gap:var(--space-4);margin-bottom:var(--space-6);}
+    .chart-card{
+      background:var(--bg-surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);padding:var(--space-5);
+    }
+    .chart-row{display:grid;grid-template-columns:1fr;gap:var(--space-4);}
+    @media(min-width:768px){.chart-row{grid-template-columns:3fr 2fr;}}
+    .chart-header{
+      display:flex;align-items:flex-start;justify-content:space-between;
+      margin-bottom:var(--space-5);gap:var(--space-4);
+    }
+    .chart-title{font-size:13px;font-weight:600;color:var(--text-primary);letter-spacing:-.1px;}
+    .chart-subtitle{font-size:11px;color:var(--text-muted);margin-top:2px;}
+    .chart-badge{
+      font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:var(--radius-sm);
+      background:var(--accent-dim);color:var(--accent);font-weight:600;flex-shrink:0;align-self:flex-start;
+    }
+    .chart-canvas-wrap{position:relative;}
+
+    /* ============================================================ TABLE */
+    .table-section{
+      background:var(--bg-surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);overflow:hidden;
+    }
+    .table-toolbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);
+      gap:var(--space-4);flex-wrap:wrap;
+    }
+    .table-toolbar-left{display:flex;align-items:center;gap:var(--space-3);}
+    .table-title{font-size:13px;font-weight:600;color:var(--text-primary);}
+    .table-count{
+      font-family:var(--font-mono);font-size:11px;padding:2px 8px;
+      border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-secondary);
+    }
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    thead th{
+      padding:var(--space-3) var(--space-4);text-align:left;
+      font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--text-muted);background:var(--bg-elevated);
+      border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;
+    }
+    thead th.sortable{cursor:pointer;}
+    thead th.sortable:hover{color:var(--text-primary);}
+    thead th .sort-icon{display:inline-block;margin-left:4px;opacity:.4;font-size:10px;}
+    thead th.sort-asc .sort-icon,thead th.sort-desc .sort-icon{opacity:1;color:var(--accent);}
+    tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--transition);}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:var(--bg-hover);}
+    tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+    tbody td{padding:var(--space-3) var(--space-4);color:var(--text-secondary);vertical-align:middle;white-space:nowrap;}
+    tbody td.td-primary{color:var(--text-primary);font-weight:500;}
+    .airline-cell{display:flex;align-items:center;gap:var(--space-2);}
+    .airline-code{
+      font-family:var(--font-mono);font-size:11px;font-weight:600;
+      padding:2px 6px;border-radius:var(--radius-sm);
+      background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border-mid);
+    }
+    .routes-chips{display:flex;gap:4px;flex-wrap:nowrap;}
+    .route-chip{
+      font-family:var(--font-mono);font-size:10px;padding:2px 5px;
+      border-radius:var(--radius-sm);background:var(--bg-elevated);
+      color:var(--text-muted);border:1px solid var(--border);white-space:nowrap;
+    }
+    .route-chip-more{font-size:10px;color:var(--text-muted);padding:2px 4px;}
+    .num-cell{font-family:var(--font-mono);font-weight:600;}
+    .num-cell.high-num{color:var(--c-critical);}
+    .num-cell.med-num{color:var(--c-high);}
+    .ts-cell{font-family:var(--font-mono);font-size:11px;}
+    .source-link{font-size:11px;color:var(--accent);white-space:nowrap;}
+
+    /* Badges */
+    .badge{
+      display:inline-flex;align-items:center;gap:4px;
+      padding:3px 8px;border-radius:99px;
+      font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+    }
+    .badge-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .badge.critical{background:var(--c-critical-dim);color:var(--c-critical);}
+    .badge.critical .badge-dot{background:var(--c-critical);}
+    .badge.high{background:var(--c-high-dim);color:var(--c-high);}
+    .badge.high .badge-dot{background:var(--c-high);}
+    .badge.medium{background:var(--c-medium-dim);color:var(--c-medium);}
+    .badge.medium .badge-dot{background:var(--c-medium);}
+    .badge.low{background:var(--c-low-dim);color:var(--c-low);}
+    .badge.low .badge-dot{background:var(--c-low);}
+
+    .impact-badge{
+      display:inline-block;padding:2px 8px;border-radius:var(--radius-sm);
+      font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;
+    }
+    .impact-cancellations{background:var(--c-critical-dim);color:var(--c-critical);}
+    .impact-fare_increase{background:var(--c-high-dim);color:var(--c-high);}
+    .impact-schedule_cuts{background:var(--c-medium-dim);color:var(--c-medium);}
+    .impact-fuel_risk{background:var(--c-purple-dim);color:var(--c-purple);}
+
+    /* Empty state in table */
+    .empty-row td{padding:var(--space-12) var(--space-6);text-align:center;cursor:default;}
+    .empty-row:hover{background:transparent!important;}
+    .empty-icon{font-size:32px;display:block;margin-bottom:var(--space-3);opacity:.4;}
+    .empty-text{color:var(--text-muted);font-size:13px;line-height:1.8;}
+
+    /* ============================================================ DETAIL DRAWER */
+    .drawer-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-overlay);
+      opacity:0;pointer-events:none;transition:opacity var(--transition-slow);
+    }
+    .drawer-overlay.open{opacity:1;pointer-events:auto;}
+    .detail-drawer{
+      position:fixed;top:0;right:0;bottom:0;width:min(520px,100vw);
+      background:var(--bg-elevated);border-left:1px solid var(--border-mid);
+      z-index:var(--z-drawer);display:flex;flex-direction:column;
+      transform:translateX(100%);transition:transform var(--transition-slow);overflow:hidden;
+    }
+    .detail-drawer.open{transform:translateX(0);}
+    .drawer-header{
+      display:flex;align-items:flex-start;justify-content:space-between;
+      padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--border);
+      gap:var(--space-4);flex-shrink:0;
+    }
+    .drawer-airline-name{font-size:17px;font-weight:600;color:var(--text-primary);line-height:1.2;}
+    .drawer-event-id{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:2px;}
+    .drawer-close{
+      min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;
+      border-radius:var(--radius);color:var(--text-muted);font-size:20px;flex-shrink:0;
+      transition:background var(--transition),color var(--transition);
+    }
+    .drawer-close:hover{background:var(--bg-hover);color:var(--text-primary);}
+    .drawer-body{
+      flex:1;overflow-y:auto;padding:var(--space-5) var(--space-6);
+      display:flex;flex-direction:column;gap:var(--space-6);
+    }
+    .drawer-section-label{
+      font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--text-muted);margin-bottom:var(--space-3);
+    }
+    .drawer-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);}
+    .drawer-meta-item{display:flex;flex-direction:column;gap:3px;}
+    .drawer-meta-key{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
+    .drawer-meta-val{font-family:var(--font-mono);font-size:13px;color:var(--text-primary);font-weight:600;}
+    .drawer-summary{font-size:13px;line-height:1.65;color:var(--text-secondary);}
+    .drawer-routes{display:flex;flex-wrap:wrap;gap:var(--space-2);}
+    .drawer-route-chip{
+      font-family:var(--font-mono);font-size:12px;font-weight:600;
+      padding:5px 10px;border-radius:var(--radius);
+      background:var(--bg-hover);color:var(--text-primary);border:1px solid var(--border-mid);
+    }
+    .drawer-airports{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-2);}
+    .drawer-airport{
+      font-family:var(--font-mono);font-size:11px;padding:3px 8px;
+      border-radius:var(--radius-sm);background:var(--accent-dim);
+      color:var(--accent);font-weight:600;border:1px solid var(--accent-glow);
+    }
+    /* Timeline */
+    .timeline{display:flex;flex-direction:column;gap:0;}
+    .timeline-item{display:flex;gap:var(--space-3);position:relative;padding-bottom:var(--space-4);}
+    .timeline-item:last-child{padding-bottom:0;}
+    .timeline-left{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:14px;}
+    .timeline-dot{
+      width:8px;height:8px;border-radius:50%;background:var(--accent);
+      flex-shrink:0;margin-top:4px;box-shadow:0 0 0 3px var(--accent-dim);
+    }
+    .timeline-line{flex:1;width:1px;background:var(--border-mid);margin-top:4px;}
+    .timeline-item:last-child .timeline-line{display:none;}
+    .timeline-date{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-bottom:2px;}
+    .timeline-note{font-size:12px;color:var(--text-secondary);line-height:1.5;}
+    .drawer-ops-notes{
+      font-size:12px;line-height:1.65;color:var(--text-secondary);
+      padding:var(--space-3) var(--space-4);background:var(--bg-hover);
+      border-radius:var(--radius);border-left:2px solid var(--accent);
+    }
+    .drawer-source-link{
+      display:inline-flex;align-items:center;gap:var(--space-2);
+      padding:var(--space-3) var(--space-4);border-radius:var(--radius);
+      border:1px solid var(--border-mid);background:var(--bg-hover);
+      font-size:12px;color:var(--accent);transition:border-color var(--transition);width:fit-content;
+    }
+    .drawer-source-link:hover{border-color:var(--accent);text-decoration:none;}
+
+    /* ============================================================ FOOTER */
+    .site-footer{
+      margin-top:var(--space-8);padding:var(--space-5) var(--space-6);
+      border-top:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+      gap:var(--space-4);flex-wrap:wrap;
+    }
+    .footer-text{font-size:11px;color:var(--text-muted);line-height:1.6;}
+    .footer-sources{display:flex;gap:var(--space-4);flex-wrap:wrap;}
+    .footer-source-link{font-size:11px;color:var(--text-muted);transition:color var(--transition);}
+    .footer-source-link:hover{color:var(--accent);text-decoration:none;}
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============================================================ HEADER -->
+  <header class="site-header" role="banner">
+    <div class="header-brand">
+      <span class="brand-logo">Fuel<span>Watch</span></span>
+      <span class="brand-sub">Aviation Disruption Tracker</span>
+    </div>
+    <div class="header-live" aria-label="Data feed status">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span id="header-ts-short">Loading…</span>
+    </div>
+    <div class="header-spacer"></div>
+    <time class="header-ts" id="header-ts-full" aria-label="Last refreshed"></time>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
+      <span id="theme-icon" aria-hidden="true">☀️</span>
+    </button>
+  </header>
+
+  <!-- ============================================================ FILTER BAR -->
+  <div class="filter-bar" role="search" aria-label="Filter disruption events">
+    <span class="filter-label" aria-hidden="true">Filter</span>
+    <div class="filter-divider" aria-hidden="true"></div>
+    <select class="filter-select" id="filter-airline" aria-label="Filter by airline">
+      <option value="">All Airlines</option>
+    </select>
+    <select class="filter-select" id="filter-region" aria-label="Filter by region">
+      <option value="">All Regions</option>
+    </select>
+    <select class="filter-select" id="filter-impact" aria-label="Filter by impact type">
+      <option value="">All Impact Types</option>
+      <option value="cancellations">Cancellations</option>
+      <option value="fare_increase">Fare Increase</option>
+      <option value="schedule_cuts">Schedule Cuts</option>
+      <option value="fuel_risk">Fuel Risk</option>
+    </select>
+    <select class="filter-select" id="filter-severity" aria-label="Filter by severity">
+      <option value="">All Severities</option>
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+    <input
+      type="search"
+      class="filter-search"
+      id="filter-search"
+      placeholder="Search routes, airports…"
+      aria-label="Search by route or airport"
+      autocomplete="off"
+    />
+    <button class="filter-clear" id="filter-clear" type="button" aria-label="Clear all filters">Clear</button>
+  </div>
+
+  <!-- ============================================================ MAIN -->
+  <main class="main-content" id="main-content" role="main">
+
+    <!-- LOADING -->
+    <div id="loading-state" class="state-panel" role="status" aria-live="polite" aria-label="Loading">
+      <div class="skeleton-grid" aria-hidden="true">
+        <div class="skeleton-card"></div><div class="skeleton-card"></div>
+        <div class="skeleton-card"></div><div class="skeleton-card"></div>
+        <div class="skeleton-card"></div><div class="skeleton-card"></div>
+      </div>
+      <p class="state-sub">Loading disruption data…</p>
+    </div>
+
+    <!-- ERROR -->
+    <div id="error-state" class="state-panel hidden" role="alert" aria-live="assertive">
+      <span class="state-icon" aria-hidden="true">⚠️</span>
+      <p class="state-title">Failed to load data</p>
+      <p class="state-sub" id="error-msg">An unexpected error occurred.</p>
+      <button class="retry-btn" id="retry-btn" type="button">Retry</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="hidden">
+
+      <!-- KPI -->
+      <section aria-label="Key performance indicators">
+        <div class="kpi-grid" id="kpi-grid"></div>
+      </section>
+
+      <!-- CHARTS -->
+      <section class="charts-section" aria-label="Charts">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Jet Fuel / Kerosene Price History</div>
+              <div class="chart-subtitle">US Gulf Coast Kerosene · $/gallon · Reference: EIA WJFUELUSGULF</div>
+            </div>
+            <span class="chart-badge" id="fuel-badge">—</span>
+          </div>
+          <div class="chart-canvas-wrap" style="height:220px;">
+            <canvas id="fuel-chart" aria-label="Jet fuel price history line chart" role="img"></canvas>
+          </div>
+        </div>
+        <div class="chart-row">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Cancellations by Airline</div>
+                <div class="chart-subtitle">Total known canceled flights per carrier (filtered)</div>
+              </div>
+            </div>
+            <div class="chart-canvas-wrap" style="height:200px;">
+              <canvas id="bar-chart" aria-label="Cancellations by airline bar chart" role="img"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Disruptions by Impact Type</div>
+                <div class="chart-subtitle">Event distribution (filtered)</div>
+              </div>
+            </div>
+            <div class="chart-canvas-wrap" style="height:200px;">
+              <canvas id="donut-chart" aria-label="Disruptions by impact type donut chart" role="img"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section class="table-section" aria-label="Disruption events table">
+        <div class="table-toolbar">
+          <div class="table-toolbar-left">
+            <span class="table-title">Disruption Events</span>
+            <span class="table-count" id="table-count" aria-live="polite" aria-atomic="true">0 events</span>
+          </div>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Disruption events, scrollable" tabindex="0">
+          <table id="disruptions-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-col="airline" scope="col">Airline <span class="sort-icon" aria-hidden="true">↕</span></th>
+                <th class="sortable" data-col="region" scope="col">Region <span class="sort-icon" aria-hidden="true">↕</span></th>
+                <th scope="col">Routes / Airports</th>
+                <th class="sortable" data-col="cancellations" scope="col">Canceled <span class="sort-icon" aria-hidden="true">↕</span></th>
+                <th scope="col">Impact</th>
+                <th class="sortable" data-col="severity" scope="col">Severity <span class="sort-icon" aria-hidden="true">↕</span></th>
+                <th class="sortable sort-desc" data-col="updated_at" scope="col">Updated <span class="sort-icon" aria-hidden="true">↓</span></th>
+                <th scope="col">Source</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div><!-- /dashboard -->
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer" role="contentinfo">
+    <p class="footer-text">
+      FuelWatch · Aviation Kerosene Disruption Tracker<br />
+      Disruption data is seeded for demonstration. Fuel prices reference EIA WJFUELUSGULF.
+    </p>
+    <div class="footer-sources">
+      <a href="https://www.eia.gov/petroleum/gasdiesel/" target="_blank" rel="noopener noreferrer" class="footer-source-link">EIA Petroleum</a>
+      <a href="https://fred.stlouisfed.org/series/WJFUELUSGULF" target="_blank" rel="noopener noreferrer" class="footer-source-link">FRED WJFUELUSGULF</a>
+      <a href="https://www.iata.org/en/publications/economics/fuel-monitor/" target="_blank" rel="noopener noreferrer" class="footer-source-link">IATA Fuel Monitor</a>
+    </div>
+  </footer>
+</div><!-- /app -->
+
+<!-- ============================================================ DETAIL DRAWER -->
+<div
+  class="drawer-overlay" id="drawer-overlay"
+  role="presentation" aria-hidden="true"
+></div>
+<aside
+  class="detail-drawer" id="detail-drawer"
+  role="dialog" aria-modal="true"
+  aria-label="Disruption event details" aria-hidden="true" tabindex="-1"
+>
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-airline-name" id="drawer-airline-name">—</div>
+      <div class="drawer-event-id" id="drawer-event-id">—</div>
+    </div>
+    <button class="drawer-close" id="drawer-close" aria-label="Close detail panel">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<!-- ================================================================
+     APPLICATION SCRIPT
+     ================================================================ -->
+<script>
+'use strict';
+
+/* ----------------------------------------------------------------
+   SAFE INNER HTML HELPER
+   All dynamic HTML goes through DOMPurify before being set as
+   innerHTML. Strings containing only text use textContent directly.
+   ---------------------------------------------------------------- */
+function safeHTML(el, html) {
+  el.innerHTML = DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'] });
+}
+
+/* ================================================================
+   SECTION 1 — SEED DATA
+   ================================================================
+   HOW TO REPLACE WITH LIVE DATA:
+   - Implement fetchFuelPrices()   to call EIA / FRED / a backend proxy
+   - Implement fetchDisruptionEvents() to call a live ops API or
+     a periodically-synced JSON file
+   Both functions are in Section 2 below.
+   ================================================================ */
+
+const SEED_AIRLINES = [
+  { id:'UA', name:'United Airlines',   code:'UA', country:'United States',          region:'North America' },
+  { id:'SK', name:'SAS',               code:'SK', country:'Sweden/Norway/Denmark',  region:'Europe'        },
+  { id:'AA', name:'American Airlines', code:'AA', country:'United States',          region:'North America' },
+  { id:'NZ', name:'Air New Zealand',   code:'NZ', country:'New Zealand',            region:'Asia-Pacific'  },
+];
+
+const SEED_DISRUPTIONS = [
+  {
+    id:'EVT-001', airline:'United Airlines', airline_code:'UA', region:'North America',
+    routes:['ORD→SEA','ORD→PDX','ORD→SFO','ORD→LAX'],
+    airports:['ORD','SEA','PDX','SFO','LAX'],
+    cancellations:34, impact_type:'cancellations', severity:'high',
+    summary:"Significant fuel allocation shortfall at Chicago O'Hare hub affecting Pacific Northwest and West Coast routes. Operations team implementing rolling schedule cuts to preserve long-haul fuel reserves.",
+    operational_notes:'Fuel uplift restricted to 90% of planned load. Ferry flights suspended until further notice. Gate teams briefed on rebooking procedures.',
+    timeline:[
+      {date:'2025-03-28',note:'Initial fuel supply alert raised at ORD hub.'},
+      {date:'2025-03-29',note:'Pacific Northwest routes flagged for schedule review.'},
+      {date:'2025-03-30',note:'Cancellations initiated for high-load-factor routes.'},
+      {date:'2025-04-01',note:'Ongoing — 34 flights canceled, 8 aircraft grounded.'},
+    ],
+    source_name:'United Airlines Travel Advisories',
+    source_url:'https://www.united.com/ual/en/us/fly/travel/advisories.html',
+    updated_at:'2025-04-01T14:30:00Z',
+  },
+  {
+    id:'EVT-002', airline:'United Airlines', airline_code:'UA', region:'Transatlantic',
+    routes:['EWR→LHR','EWR→FRA','IAD→CDG'],
+    airports:['EWR','IAD','LHR','FRA','CDG'],
+    cancellations:0, impact_type:'fare_increase', severity:'medium',
+    summary:'Transatlantic routes subject to a fuel surcharge of $45–$80 per segment amid elevated kerosene spot prices in European markets. No schedule disruptions at this time.',
+    operational_notes:'Surcharge applied from booking date 2025-03-25. Commercial team monitoring European Jet CIF NWE benchmark.',
+    timeline:[
+      {date:'2025-03-20',note:'European spot fuel prices rise 12% week-on-week.'},
+      {date:'2025-03-25',note:'Fuel surcharge of $45–$80 per segment applied.'},
+    ],
+    source_name:'United Investor Relations',
+    source_url:'https://ir.united.com/',
+    updated_at:'2025-03-31T09:00:00Z',
+  },
+  {
+    id:'EVT-003', airline:'SAS', airline_code:'SK', region:'Europe',
+    routes:['OSL→CPH','ARN→CPH','HEL→CPH','OSL→ARN'],
+    airports:['OSL','CPH','ARN','HEL'],
+    cancellations:18, impact_type:'cancellations', severity:'high',
+    summary:'Nordic intra-regional network disrupted due to kerosene delivery delays at Oslo Gardermoen and Copenhagen Kastrup. Eighteen short-haul services canceled across Scandinavian routes.',
+    operational_notes:'Contract renegotiation with Norwegian fuel supplier ongoing. Temporary reduction in turnaround fuel loads across OSL/CPH.',
+    timeline:[
+      {date:'2025-03-26',note:'Fuel delivery delays reported at OSL by ground operations.'},
+      {date:'2025-03-27',note:'Emergency fuel contract activated — capacity constrained.'},
+      {date:'2025-03-29',note:'18 flights canceled across the Nordic hub network.'},
+      {date:'2025-04-01',note:'Negotiations ongoing; partial delivery resumed at CPH.'},
+    ],
+    source_name:'SAS Group Newsroom',
+    source_url:'https://www.sasgroup.net/newsroom/',
+    updated_at:'2025-04-01T11:00:00Z',
+  },
+  {
+    id:'EVT-004', airline:'SAS', airline_code:'SK', region:'Asia-Pacific',
+    routes:['CPH→BKK','CPH→PEK'],
+    airports:['CPH','BKK','PEK'],
+    cancellations:6, impact_type:'schedule_cuts', severity:'medium',
+    summary:'Long-haul services to Bangkok and Beijing suspended temporarily due to uneconomic fuel cost structure. Routes under commercial review for Q2 continuation.',
+    operational_notes:'Aircraft redeployed to higher-margin intra-European routes during suspension period.',
+    timeline:[
+      {date:'2025-03-15',note:'Route profitability review triggered by fuel cost spike.'},
+      {date:'2025-03-22',note:'BKK and PEK departures suspended effective April 1.'},
+    ],
+    source_name:'SAS Investor Update Q1 2025',
+    source_url:'https://www.sasgroup.net/investor-relations/',
+    updated_at:'2025-03-28T16:00:00Z',
+  },
+  {
+    id:'EVT-005', airline:'American Airlines', airline_code:'AA', region:'North America',
+    routes:['DFW→LAX','DFW→JFK','DFW→MIA','DFW→ORD','DFW→BOS','DFW→SEA'],
+    airports:['DFW','LAX','JFK','MIA','ORD','BOS','SEA'],
+    cancellations:47, impact_type:'cancellations', severity:'critical',
+    summary:"American's primary hub at Dallas/Fort Worth has experienced the most significant fuel supply disruption in its network. Forty-seven mainline departures canceled across major domestic corridors.",
+    operational_notes:'Primary fuel supplier invoked force majeure clause. Regional carrier partners also affected. Secondary supplier onboarding underway.',
+    timeline:[
+      {date:'2025-03-27',note:'DFW primary fuel supplier declares supply force majeure event.'},
+      {date:'2025-03-28',note:'AA activates contingency operations plan.'},
+      {date:'2025-03-29',note:'First wave of 22 cancellations processed for March 30.'},
+      {date:'2025-03-30',note:'25 additional cancellations added for March 31–April 2.'},
+      {date:'2025-04-01',note:'Ongoing — secondary supplier being onboarded at DFW.'},
+    ],
+    source_name:'American Airlines Newsroom',
+    source_url:'https://news.aa.com/',
+    updated_at:'2025-04-01T16:00:00Z',
+  },
+  {
+    id:'EVT-006', airline:'American Airlines', airline_code:'AA', region:'Caribbean',
+    routes:['MIA→SJU','MIA→SDQ','MIA→CUN','CLT→SJU'],
+    airports:['MIA','SJU','SDQ','CUN','CLT'],
+    cancellations:9, impact_type:'fuel_risk', severity:'low',
+    summary:'Caribbean leisure routes flagged for elevated fuel-risk status. Limited cancellations to date; situation is being monitored closely as regional supply chain remains under pressure.',
+    operational_notes:'MIA fuel reserves adequate for approximately 72 hours at current uplift rates. Caribbean ops team on heightened alert.',
+    timeline:[
+      {date:'2025-03-30',note:'Caribbean routes added to fuel risk watch list.'},
+      {date:'2025-04-01',note:'9 flights canceled; remainder still operating normally.'},
+    ],
+    source_name:'AA Operations Bulletin',
+    source_url:'https://news.aa.com/',
+    updated_at:'2025-04-01T08:00:00Z',
+  },
+  {
+    id:'EVT-007', airline:'Air New Zealand', airline_code:'NZ', region:'Asia-Pacific',
+    routes:['AKL→LAX','AKL→SFO','AKL→HKG','AKL→SIN'],
+    airports:['AKL','LAX','SFO','HKG','SIN'],
+    cancellations:12, impact_type:'schedule_cuts', severity:'high',
+    summary:'Air New Zealand has cut transpacific and Southeast Asian long-haul services following unsustainable jet-fuel procurement costs at Auckland Airport. Twelve departures removed from the April schedule.',
+    operational_notes:'Aircraft redeployed to domestic NZ network while long-haul fuel supply is normalized. Passengers rebooking on partner carriers.',
+    timeline:[
+      {date:'2025-03-18',note:'AKL fuel procurement costs exceed budgeted threshold by 18%.'},
+      {date:'2025-03-24',note:'Transpacific schedule reviewed; LAX/SFO frequency cut.'},
+      {date:'2025-03-28',note:'HKG and SIN routes added to service reduction scope.'},
+      {date:'2025-04-01',note:'12 departures removed from April long-haul schedule.'},
+    ],
+    source_name:'Air New Zealand Media Centre',
+    source_url:'https://www.airnewzealand.co.nz/media-releases',
+    updated_at:'2025-04-01T02:00:00Z',
+  },
+  {
+    id:'EVT-008', airline:'Air New Zealand', airline_code:'NZ', region:'Oceania',
+    routes:['AKL→CHC','AKL→WLG','AKL→ZQN','CHC→WLG'],
+    airports:['AKL','CHC','WLG','ZQN'],
+    cancellations:7, impact_type:'fare_increase', severity:'low',
+    summary:'Domestic New Zealand network fares increased by NZD 20–55 per segment due to elevated fuel costs. Limited cancellations; schedule maintained with reduced aircraft utilization.',
+    operational_notes:'ATR turboprop fleet temporarily substituted on shorter sectors in place of Boeing 737.',
+    timeline:[
+      {date:'2025-03-29',note:'Domestic fare surcharge of NZD 20–55 per segment applied.'},
+      {date:'2025-04-01',note:'7 domestic flights canceled; primary schedule maintained.'},
+    ],
+    source_name:'Air NZ Media Release',
+    source_url:'https://www.airnewzealand.co.nz/media-releases',
+    updated_at:'2025-04-01T01:00:00Z',
+  },
+];
+
+/*
+  Weekly US Gulf Coast Kerosene prices ($/gallon).
+  Reference series: EIA WJFUELUSGULF
+  Approximate historical values — Jan 2024 to Apr 2025.
+
+  TO REPLACE WITH LIVE DATA:
+  1. Sign up for a free EIA API key at https://www.eia.gov/opendata/
+  2. Fetch: https://api.eia.gov/v2/petroleum/pri/wfr/data/?api_key=KEY&frequency=weekly&data[0]=value&facets[product][]=EPD2F&sort[0][column]=period&sort[0][direction]=desc&length=65
+  3. Or use FRED API: https://fred.stlouisfed.org/docs/api/api_key.html
+     GET https://api.stlouisfed.org/fred/series/observations?series_id=WJFUELUSGULF&api_key=KEY&file_type=json
+  4. Pass raw response to normalizeFuelPriceData(raw)
+  Note: direct browser fetch from EIA/FRED may hit CORS limits.
+  Recommended pattern: a scheduled backend job or Fly.io cron that
+  writes data to a static /data/fuel-prices.json file served alongside index.html.
+*/
+const SEED_FUEL_PRICES = [
+  {date:'2024-01-08',price:2.822,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-01-15',price:2.791,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-01-22',price:2.768,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-01-29',price:2.803,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-02-05',price:2.759,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-02-12',price:2.714,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-02-19',price:2.683,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-02-26',price:2.720,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-03-04',price:2.751,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-03-11',price:2.832,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-03-18',price:2.879,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-03-25',price:2.901,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-04-01',price:2.853,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-04-08',price:2.804,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-04-15',price:2.781,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-04-22',price:2.813,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-04-29',price:2.840,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-05-06',price:2.868,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-05-13',price:2.910,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-05-20',price:2.951,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-05-27',price:2.934,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-06-03',price:2.903,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-06-10',price:2.862,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-06-17',price:2.831,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-06-24',price:2.854,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-07-01',price:2.872,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-07-08',price:2.843,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-07-15',price:2.819,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-07-22',price:2.851,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-07-29',price:2.879,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-08-05',price:2.814,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-08-12',price:2.773,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-08-19',price:2.724,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-08-26',price:2.681,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-09-02',price:2.649,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-09-09',price:2.583,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-09-16',price:2.540,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-09-23',price:2.511,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-09-30',price:2.549,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-10-07',price:2.521,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-10-14',price:2.493,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-10-21',price:2.471,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-10-28',price:2.499,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-11-04',price:2.528,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-11-11',price:2.553,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-11-18',price:2.521,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-11-25',price:2.481,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-12-02',price:2.448,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-12-09',price:2.412,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-12-16',price:2.440,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-12-23',price:2.468,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2024-12-30',price:2.501,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-01-06',price:2.534,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-01-13',price:2.571,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-01-20',price:2.609,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-01-27',price:2.583,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-02-03',price:2.641,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-02-10',price:2.672,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-02-17',price:2.713,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-02-24',price:2.698,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-03-03',price:2.731,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-03-10',price:2.769,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-03-17',price:2.818,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-03-24',price:2.861,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-03-31',price:2.892,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+  {date:'2025-04-07',price:2.921,source:'EIA WJFUELUSGULF (seed)',series_id:'WJFUELUSGULF'},
+];
+
+/* ================================================================
+   SECTION 2 — DATA ADAPTER LAYER
+   ================================================================ */
+
+/**
+ * fetchFuelPrices()
+ * Returns normalized fuel price records.
+ * REPLACE the body with a fetch() call to your live source:
+ *   const r = await fetch('/data/fuel-prices.json');  // static JSON sync
+ *   return normalizeFuelPriceData(await r.json());
+ */
+async function fetchFuelPrices() {
+  return normalizeFuelPriceData(SEED_FUEL_PRICES);
+}
+
+/**
+ * normalizeFuelPriceData()
+ * Maps any raw schema to { date, price, source, series_id }.
+ */
+function normalizeFuelPriceData(raw) {
+  return (Array.isArray(raw) ? raw : [])
+    .filter(r => r && r.date && r.price != null)
+    .map(r => ({
+      date:      String(r.date),
+      price:     parseFloat(r.price),
+      source:    String(r.source || 'Unknown'),
+      series_id: String(r.series_id || ''),
+    }))
+    .sort((a,b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * fetchDisruptionEvents()
+ * Returns normalized disruption event records.
+ * REPLACE the body with a fetch() call to your live source:
+ *   const r = await fetch('/data/disruptions.json');
+ *   return normalizeDisruptionData(await r.json());
+ */
+async function fetchDisruptionEvents() {
+  return normalizeDisruptionData(SEED_DISRUPTIONS);
+}
+
+/**
+ * normalizeDisruptionData()
+ * Maps any raw schema to the common DisruptionEvent shape.
+ */
+function normalizeDisruptionData(raw) {
+  return (Array.isArray(raw) ? raw : []).map(r => ({
+    id:                String(r.id || Math.random().toString(36).slice(2)),
+    airline:           String(r.airline || ''),
+    airline_code:      String(r.airline_code || ''),
+    region:            String(r.region || ''),
+    routes:            Array.isArray(r.routes)   ? r.routes.map(String)   : [],
+    airports:          Array.isArray(r.airports) ? r.airports.map(String) : [],
+    cancellations:     parseInt(r.cancellations, 10) || 0,
+    impact_type:       String(r.impact_type  || 'fuel_risk'),
+    severity:          String(r.severity     || 'low'),
+    summary:           String(r.summary      || ''),
+    operational_notes: String(r.operational_notes || ''),
+    timeline:          Array.isArray(r.timeline) ? r.timeline : [],
+    source_name:       String(r.source_name  || ''),
+    source_url:        String(r.source_url   || '#'),
+    updated_at:        String(r.updated_at   || new Date().toISOString()),
+  }));
+}
+
+/* ================================================================
+   SECTION 3 — APPLICATION STATE
+   ================================================================ */
+
+const AppState = {
+  disruptions: [],
+  fuelPrices:  [],
+  filters: { airline:'', region:'', impactType:'', severity:'', search:'' },
+  sort:    { col:'updated_at', dir:'desc' },
+  selectedEventId: null,
+  _lastFocusedRow: null,
+  theme: 'dark',
+};
+
+/* ================================================================
+   SECTION 4 — FILTERING & SORTING
+   ================================================================ */
+
+function getFilteredDisruptions() {
+  const {airline, region, impactType, severity, search} = AppState.filters;
+  const q = search.toLowerCase().trim();
+  return AppState.disruptions.filter(d => {
+    if (airline    && d.airline     !== airline)    return false;
+    if (region     && d.region      !== region)     return false;
+    if (impactType && d.impact_type !== impactType) return false;
+    if (severity   && d.severity    !== severity)   return false;
+    if (q) {
+      const hay = [...d.routes, ...d.airports, d.airline, d.region, d.summary].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+const SEV_ORDER = {critical:0, high:1, medium:2, low:3};
+
+function sortDisruptions(rows) {
+  const {col, dir} = AppState.sort;
+  return [...rows].sort((a,b) => {
+    let av = a[col], bv = b[col];
+    if (col === 'severity')     { av = SEV_ORDER[av]??99; bv = SEV_ORDER[bv]??99; }
+    else if (typeof av==='string') { av=av.toLowerCase(); bv=(bv||'').toLowerCase(); }
+    if (av < bv) return dir==='asc' ? -1 :  1;
+    if (av > bv) return dir==='asc' ?  1 : -1;
+    return 0;
+  });
+}
+
+/* ================================================================
+   SECTION 5 — KPI COMPUTATION
+   ================================================================ */
+
+function computeKPIs(disruptions, fuelPrices) {
+  const impactedAirlines = new Set(disruptions.map(d=>d.airline)).size;
+  const totalCanceled    = disruptions.reduce((s,d)=>s+d.cancellations, 0);
+  const affectedRoutes   = new Set(disruptions.flatMap(d=>d.routes)).size;
+  const activeRegions    = new Set(disruptions.map(d=>d.region)).size;
+  const sorted = [...fuelPrices].sort((a,b)=>b.date.localeCompare(a.date));
+  const latestPrice  = sorted[0]?.price ?? null;
+  const prevPrice    = sorted[7]?.price ?? null;
+  const priceDelta   = latestPrice && prevPrice ? latestPrice - prevPrice : null;
+  const deltaPct     = priceDelta && prevPrice ? (priceDelta/prevPrice)*100 : null;
+  return {impactedAirlines, totalCanceled, affectedRoutes, activeRegions, latestPrice, priceDelta, deltaPct};
+}
+
+/* ================================================================
+   SECTION 6 — RENDER: KPI CARDS
+   ================================================================ */
+
+function renderKPIs(disruptions, fuelPrices) {
+  const kpi = computeKPIs(disruptions, fuelPrices);
+  const fmtN  = n => n==null ? '—' : n.toLocaleString();
+  const fmtP  = p => p==null ? '—' : '$'+p.toFixed(3);
+  const fmtD  = d => d==null ? '' : (d>=0?'+':'')+d.toFixed(3);
+  const fmtPct= p => p==null ? '' : (p>=0?'▲':'▼')+Math.abs(p).toFixed(1)+'%';
+  const dcls  = kpi.priceDelta==null?'neutral': kpi.priceDelta>0?'up':'down';
+
+  const deltaHTML = kpi.priceDelta!=null
+    ? `<span class="kpi-delta ${dcls}">${fmtPct(kpi.deltaPct)} ${fmtD(kpi.priceDelta)}</span>`
+    : '';
+
+  const cards = [
+    { label:'Impacted Airlines', value:fmtN(kpi.impactedAirlines), extra:'', sub:'Active carriers with disruptions', accent:'--accent' },
+    { label:'Canceled Flights',  value:fmtN(kpi.totalCanceled),    extra:'', sub:'Total known cancellations',        accent:'--c-critical' },
+    { label:'Affected Routes',   value:fmtN(kpi.affectedRoutes),   extra:'', sub:'Unique route pairs impacted',      accent:'--c-high' },
+    { label:'Active Regions',    value:fmtN(kpi.activeRegions),    extra:'', sub:'Geographic areas affected',        accent:'--c-medium' },
+    { label:'Fuel Price / gal',  value:fmtP(kpi.latestPrice), valueClass:'accent', extra:deltaHTML, sub:'US Gulf Coast Kerosene · latest', accent:'--accent' },
+    { label:'7-Week Δ Price',     value:fmtD(kpi.priceDelta)||'—', extra:'', sub:kpi.deltaPct!=null?`${fmtPct(kpi.deltaPct)} over 7 weeks`:'Insufficient data', accent: kpi.priceDelta!=null&&kpi.priceDelta>0?'--c-critical':'--c-low' },
+  ];
+
+  const html = cards.map(c => `
+    <div class="kpi-card" style="--kpi-accent:var(${c.accent})">
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value ${c.valueClass||''}">${c.value}</div>
+      ${c.extra}
+      <div class="kpi-sub">${c.sub}</div>
+    </div>`).join('');
+
+  safeHTML(document.getElementById('kpi-grid'), html);
+}
+
+/* ================================================================
+   SECTION 7 — RENDER: TABLE
+   ================================================================ */
+
+function renderTable(rows) {
+  const tbody = document.getElementById('table-body');
+  const count = document.getElementById('table-count');
+  count.textContent = `${rows.length} event${rows.length!==1?'s':''}`;
+
+  if (rows.length===0) {
+    safeHTML(tbody, `<tr class="empty-row"><td colspan="8">
+      <span class="empty-icon" aria-hidden="true">🔍</span>
+      <span class="empty-text">No disruptions match the current filters.<br>Try adjusting or clearing the filters above.</span>
+    </td></tr>`);
+    return;
+  }
+
+  const html = rows.map(d => {
+    const vis  = d.routes.slice(0,2);
+    const more = d.routes.length - vis.length;
+    const chips = vis.map(r=>`<span class="route-chip">${esc(r)}</span>`).join('')
+                + (more>0?`<span class="route-chip-more">+${more}</span>`:'');
+    const ncls  = d.cancellations>=40?'high-num': d.cancellations>=15?'med-num':'';
+    return `<tr
+      tabindex="0" role="button"
+      aria-label="View details: ${esc(d.airline)} event ${esc(d.id)}"
+      data-id="${esc(d.id)}"
+    >
+      <td class="td-primary"><div class="airline-cell"><span class="airline-code">${esc(d.airline_code)}</span>${esc(d.airline)}</div></td>
+      <td>${esc(d.region)}</td>
+      <td><div class="routes-chips">${chips}</div></td>
+      <td class="num-cell ${ncls}">${d.cancellations}</td>
+      <td><span class="impact-badge impact-${esc(d.impact_type)}">${impactLabel(d.impact_type)}</span></td>
+      <td><span class="badge ${esc(d.severity)}"><span class="badge-dot" aria-hidden="true"></span>${esc(d.severity)}</span></td>
+      <td class="ts-cell">${fmtDate(d.updated_at)}</td>
+      <td><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer" class="source-link"
+          onclick="event.stopPropagation()" aria-label="Source: ${esc(d.source_name)} (opens new tab)">${esc(trunc(d.source_name,22))}</a></td>
+    </tr>`;
+  }).join('');
+
+  safeHTML(tbody, html);
+
+  // Attach row click/keydown after render
+  tbody.querySelectorAll('tr[data-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      AppState._lastFocusedRow = row;
+      openDrawer(row.dataset.id);
+    });
+    row.addEventListener('keydown', e => {
+      if (e.key==='Enter' || e.key===' ') {
+        e.preventDefault();
+        AppState._lastFocusedRow = row;
+        openDrawer(row.dataset.id);
+      }
+    });
+  });
+
+  updateSortHeaders();
+}
+
+/* ================================================================
+   SECTION 8 — RENDER: CHARTS
+   ================================================================ */
+
+let fuelChartInst=null, barChartInst=null, donutChartInst=null;
+
+function cc() {
+  const s = getComputedStyle(document.documentElement);
+  const g = k => s.getPropertyValue(k).trim();
+  return {
+    accent:   g('--accent')    || '#f59e0b',
+    critical: g('--c-critical')|| '#f43f5e',
+    high:     g('--c-high')    || '#fb923c',
+    medium:   g('--c-medium')  || '#fbbf24',
+    info:     g('--c-info')    || '#60a5fa',
+    purple:   g('--c-purple')  || '#a78bfa',
+    grid:     g('--chart-grid')|| 'rgba(255,255,255,.05)',
+    txt:      g('--chart-txt') || '#5a6e85',
+    elevated: g('--bg-elevated')|| '#131a24',
+  };
+}
+
+function renderFuelChart() {
+  const prices = AppState.fuelPrices;
+  if (!prices.length) return;
+  const colors = cc();
+  const ctx = document.getElementById('fuel-chart').getContext('2d');
+  if (fuelChartInst) fuelChartInst.destroy();
+
+  const latest = prices[prices.length-1];
+  const badge = document.getElementById('fuel-badge');
+  if (badge && latest) badge.textContent = '$'+latest.price.toFixed(3)+'/gal';
+
+  const labels = prices.map(p => {
+    const d = new Date(p.date+'T00:00:00Z');
+    return d.toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'});
+  });
+  const dedupLabels = labels.map((l,i) => i===0||labels[i-1]!==l ? l : '');
+
+  fuelChartInst = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: dedupLabels,
+      datasets:[{
+        label:'Jet Fuel $/gal', data: prices.map(p=>p.price),
+        borderColor: colors.accent,
+        backgroundColor: hexAlpha(colors.accent, 0.08),
+        borderWidth:2, pointRadius:0, pointHoverRadius:5,
+        pointHoverBackgroundColor: colors.accent,
+        fill:true, tension:0.35,
+      }],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor: colors.elevated, titleColor: colors.txt,
+          bodyColor: colors.accent, borderColor: colors.grid, borderWidth:1, padding:10,
+          callbacks:{
+            label: ctx => ' $'+ctx.parsed.y.toFixed(3)+'/gal',
+            title: items => prices[items[0].dataIndex]?.date || '',
+          },
+        },
+      },
+      scales:{
+        x:{grid:{color:colors.grid}, ticks:{color:colors.txt, font:{family:"'JetBrains Mono'",size:10}, maxTicksLimit:12, maxRotation:0}, border:{display:false}},
+        y:{grid:{color:colors.grid}, ticks:{color:colors.txt, font:{family:"'JetBrains Mono'",size:10}, callback:v=>'$'+v.toFixed(2)}, border:{display:false}},
+      },
+    },
+  });
+}
+
+function renderBarChart(rows) {
+  const colors = cc();
+  const ctx = document.getElementById('bar-chart').getContext('2d');
+  if (barChartInst) barChartInst.destroy();
+
+  const byAirline = {};
+  for (const d of rows) byAirline[d.airline] = (byAirline[d.airline]||0)+d.cancellations;
+  const airlines = SEED_AIRLINES.map(a=>a.name);
+  const counts   = airlines.map(a=>byAirline[a]||0);
+  const bgs      = counts.map(c => c>=40 ? colors.critical : c>=15 ? colors.high : c>0 ? colors.info : colors.grid);
+
+  barChartInst = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: airlines.map(a=>a.replace(' Airlines','').replace('Air New Zealand','Air NZ')),
+      datasets:[{label:'Canceled', data:counts, backgroundColor:bgs, borderRadius:4, borderSkipped:false}],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:colors.elevated,titleColor:colors.txt,bodyColor:colors.accent,borderColor:colors.grid,borderWidth:1,padding:10,callbacks:{label:c=>' '+c.parsed.y+' canceled'}},
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{color:colors.txt,font:{family:"'Outfit'",size:11}}, border:{display:false}},
+        y:{grid:{color:colors.grid}, ticks:{color:colors.txt,font:{family:"'JetBrains Mono'",size:10},stepSize:10}, border:{display:false}},
+      },
+    },
+  });
+}
+
+function renderDonutChart(rows) {
+  const colors = cc();
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  if (donutChartInst) donutChartInst.destroy();
+
+  const types = {cancellations:0, fare_increase:0, schedule_cuts:0, fuel_risk:0};
+  for (const d of rows) if (types[d.impact_type]!==undefined) types[d.impact_type]++;
+  const labels  = ['Cancellations','Fare Increase','Schedule Cuts','Fuel Risk'];
+  const data    = Object.values(types);
+  const palette = [colors.critical, colors.high, colors.medium, colors.purple];
+
+  donutChartInst = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels,
+      datasets:[{data, backgroundColor:palette.map(c=>hexAlpha(c,.85)), borderColor:palette, borderWidth:1.5, hoverOffset:6}],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{display:true, position:'bottom', labels:{color:colors.txt, font:{family:"'Outfit'",size:11}, boxWidth:10, padding:12}},
+        tooltip:{backgroundColor:colors.elevated,titleColor:colors.txt,bodyColor:colors.accent,borderColor:colors.grid,borderWidth:1,padding:10,callbacks:{label:c=>' '+c.parsed+' event'+(c.parsed!==1?'s':'')}},
+      },
+    },
+  });
+}
+
+/* ================================================================
+   SECTION 9 — DETAIL DRAWER
+   ================================================================ */
+
+function openDrawer(eventId) {
+  const ev = AppState.disruptions.find(d=>d.id===eventId);
+  if (!ev) return;
+  AppState.selectedEventId = eventId;
+
+  document.getElementById('drawer-airline-name').textContent = ev.airline;
+  document.getElementById('drawer-event-id').textContent     = ev.id + ' · ' + ev.region;
+  renderDrawerContent(ev);
+
+  const overlay = document.getElementById('drawer-overlay');
+  const drawer  = document.getElementById('detail-drawer');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden','false');
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden','false');
+  document.body.style.overflow = 'hidden';
+
+  requestAnimationFrame(()=>{ document.getElementById('drawer-close')?.focus(); });
+}
+
+function closeDrawer() {
+  AppState.selectedEventId = null;
+  const overlay = document.getElementById('drawer-overlay');
+  const drawer  = document.getElementById('detail-drawer');
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden','true');
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+  AppState._lastFocusedRow?.focus();
+  AppState._lastFocusedRow = null;
+}
+
+function renderDrawerContent(ev) {
+  const metaHTML = `
+    <div>
+      <div class="drawer-section-label">Overview</div>
+      <div class="drawer-meta-grid">
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Event ID</span><span class="drawer-meta-val">${esc(ev.id)}</span></div>
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Region</span><span class="drawer-meta-val">${esc(ev.region)}</span></div>
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Cancellations</span><span class="drawer-meta-val">${ev.cancellations}</span></div>
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Severity</span><span class="drawer-meta-val"><span class="badge ${esc(ev.severity)}" style="font-size:11px"><span class="badge-dot" aria-hidden="true"></span>${esc(ev.severity)}</span></span></div>
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Impact</span><span class="drawer-meta-val"><span class="impact-badge impact-${esc(ev.impact_type)}" style="font-size:11px">${impactLabel(ev.impact_type)}</span></span></div>
+        <div class="drawer-meta-item"><span class="drawer-meta-key">Updated</span><span class="drawer-meta-val" style="font-size:11px">${fmtDate(ev.updated_at)}</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="drawer-section-label">Summary</div>
+      <p class="drawer-summary">${esc(ev.summary)}</p>
+    </div>
+
+    <div>
+      <div class="drawer-section-label">Affected Routes</div>
+      <div class="drawer-routes">${ev.routes.map(r=>`<span class="drawer-route-chip">${esc(r)}</span>`).join('')}</div>
+      <div class="drawer-airports">${ev.airports.map(a=>`<span class="drawer-airport">${esc(a)}</span>`).join('')}</div>
+    </div>
+
+    ${ev.operational_notes ? `
+    <div>
+      <div class="drawer-section-label">Operational Notes</div>
+      <div class="drawer-ops-notes">${esc(ev.operational_notes)}</div>
+    </div>` : ''}
+
+    ${ev.timeline && ev.timeline.length ? `
+    <div>
+      <div class="drawer-section-label">Event Timeline</div>
+      <div class="timeline" role="list">
+        ${ev.timeline.map(t=>`
+          <div class="timeline-item" role="listitem">
+            <div class="timeline-left" aria-hidden="true"><span class="timeline-dot"></span><span class="timeline-line"></span></div>
+            <div><div class="timeline-date">${esc(t.date)}</div><div class="timeline-note">${esc(t.note)}</div></div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <div>
+      <div class="drawer-section-label">Source</div>
+      <a href="${esc(ev.source_url)}" target="_blank" rel="noopener noreferrer"
+         class="drawer-source-link" aria-label="${esc(ev.source_name)} (opens new tab)">
+        <span aria-hidden="true">↗</span>${esc(ev.source_name)}
+      </a>
+    </div>`;
+
+  safeHTML(document.getElementById('drawer-body'), metaHTML);
+}
+
+/* ================================================================
+   SECTION 10 — FILTERS & SORT
+   ================================================================ */
+
+function populateFilterOptions() {
+  const airlines = [...new Set(AppState.disruptions.map(d=>d.airline))].sort();
+  const regions  = [...new Set(AppState.disruptions.map(d=>d.region))].sort();
+  const fill = (id, vals) => {
+    const el = document.getElementById(id);
+    const first = el.options[0].outerHTML;
+    safeHTML(el, first + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''));
+  };
+  fill('filter-airline', airlines);
+  fill('filter-region',  regions);
+}
+
+function applyAndRender() {
+  const rows = sortDisruptions(getFilteredDisruptions());
+  renderKPIs(rows, AppState.fuelPrices);
+  renderTable(rows);
+  renderBarChart(rows);
+  renderDonutChart(rows);
+}
+
+function initFilters() {
+  const map = {'filter-airline':'airline','filter-region':'region','filter-impact':'impactType','filter-severity':'severity'};
+  Object.keys(map).forEach(id => {
+    document.getElementById(id).addEventListener('change', e => {
+      AppState.filters[map[id]] = e.target.value;
+      applyAndRender();
+    });
+  });
+
+  let searchTimer;
+  document.getElementById('filter-search').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      AppState.filters.search = e.target.value;
+      applyAndRender();
+    }, 200);
+  });
+
+  document.getElementById('filter-clear').addEventListener('click', () => {
+    AppState.filters = {airline:'',region:'',impactType:'',severity:'',search:''};
+    ['filter-airline','filter-region','filter-impact','filter-severity'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('filter-search').value = '';
+    applyAndRender();
+  });
+}
+
+function initTableSort() {
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    th.setAttribute('tabindex','0');
+    const activate = () => {
+      const col = th.dataset.col;
+      AppState.sort.col === col
+        ? (AppState.sort.dir = AppState.sort.dir==='asc'?'desc':'asc')
+        : (AppState.sort.col=col, AppState.sort.dir=col==='updated_at'?'desc':'asc');
+      applyAndRender();
+    };
+    th.addEventListener('click', activate);
+    th.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();} });
+  });
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    const active = th.dataset.col === AppState.sort.col;
+    const icon   = th.querySelector('.sort-icon');
+    th.classList.remove('sort-asc','sort-desc');
+    th.removeAttribute('aria-sort');
+    if (active) {
+      th.classList.add(AppState.sort.dir==='asc'?'sort-asc':'sort-desc');
+      th.setAttribute('aria-sort', AppState.sort.dir==='asc'?'ascending':'descending');
+      icon.textContent = AppState.sort.dir==='asc'?'↑':'↓';
+    } else {
+      icon.textContent = '↕';
+    }
+  });
+}
+
+/* ================================================================
+   SECTION 11 — THEME
+   ================================================================ */
+
+function initTheme() {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  AppState.theme = prefersDark ? 'dark' : 'light';
+  applyTheme(AppState.theme);
+
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    AppState.theme = AppState.theme==='dark' ? 'light' : 'dark';
+    applyTheme(AppState.theme);
+    renderFuelChart();
+    applyAndRender();
+  });
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-icon').textContent = theme==='dark' ? '☀️' : '🌙';
+}
+
+/* ================================================================
+   SECTION 12 — STATES
+   ================================================================ */
+
+function showLoading() {
+  document.getElementById('loading-state').classList.remove('hidden');
+  document.getElementById('error-state').classList.add('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+}
+function showError(msg) {
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('error-state').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('error-msg').textContent = msg || 'An unexpected error occurred.';
+}
+function showDashboard() {
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('error-state').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+}
+
+/* ================================================================
+   SECTION 13 — KEYBOARD / FOCUS TRAP (DRAWER)
+   ================================================================ */
+
+document.addEventListener('keydown', e => {
+  const drawer = document.getElementById('detail-drawer');
+  if (!drawer.classList.contains('open')) return;
+  if (e.key==='Escape') { closeDrawer(); return; }
+  if (e.key==='Tab') {
+    const focusable = [...drawer.querySelectorAll('button,[href],input,select,[tabindex]:not([tabindex="-1"])')];
+    const first = focusable[0], last = focusable[focusable.length-1];
+    if (e.shiftKey) { if (document.activeElement===first) { e.preventDefault(); last.focus(); } }
+    else            { if (document.activeElement===last)  { e.preventDefault(); first.focus(); } }
+  }
+});
+
+document.getElementById('drawer-overlay').addEventListener('click', closeDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+document.getElementById('retry-btn').addEventListener('click', init);
+
+/* ================================================================
+   SECTION 14 — UTILITIES
+   ================================================================ */
+
+function esc(str) {
+  return String(str??'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function trunc(str, n) { return str&&str.length>n ? str.slice(0,n-1)+'…' : (str||''); }
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'})
+         + ' '
+         + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});
+  } catch { return iso; }
+}
+function impactLabel(t) {
+  return {cancellations:'Cancellations',fare_increase:'Fare Increase',schedule_cuts:'Schedule Cuts',fuel_risk:'Fuel Risk'}[t]||t;
+}
+function hexAlpha(hex, a) {
+  if (!hex||hex.startsWith('var(')||hex.startsWith('rgb')) return hex;
+  const h = hex.replace('#','');
+  const l = h.length===3?1:2;
+  const r = parseInt(h.slice(0,l).padStart(2,h[0]),16);
+  const g = parseInt(h.slice(l,l*2).padStart(2,h[l]),16);
+  const b = parseInt(h.slice(l*2).padStart(2,h[l*2]),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function updateTimestamp() {
+  const now = new Date();
+  const s = document.getElementById('header-ts-short');
+  const f = document.getElementById('header-ts-full');
+  if (s) s.textContent = 'Updated '+now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  if (f) f.textContent = now.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'});
+}
+
+/* ================================================================
+   SECTION 15 — INIT
+   ================================================================ */
+
+async function init() {
+  showLoading();
+  initTheme();
+  try {
+    const [disruptions, fuelPrices] = await Promise.all([
+      fetchDisruptionEvents(),
+      fetchFuelPrices(),
+    ]);
+    AppState.disruptions = disruptions;
+    AppState.fuelPrices  = fuelPrices;
+    populateFilterOptions();
+    initFilters();
+    initTableSort();
+    showDashboard();
+    renderFuelChart();
+    applyAndRender();
+    updateTimestamp();
+    setInterval(updateTimestamp, 60_000);
+  } catch(err) {
+    console.error('FuelWatch init error:', err);
+    showError(err.message || 'Failed to load dashboard data. Please retry.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
