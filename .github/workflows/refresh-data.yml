@@ -1,0 +1,25 @@
+name: Refresh fuel price data
+
+# Restarts the Fly.io machines daily so entrypoint.sh re-fetches live EIA data.
+# No redeploy needed — just a container restart, takes ~10 seconds.
+#
+# Required secret: FLY_API_TOKEN
+#   1. fly tokens create deploy -x 999999h
+#   2. Add as a GitHub repo secret named FLY_API_TOKEN
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    name: Restart Fly.io machines
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Restart app machines
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl machines restart --app fuelwatch-dashboard
