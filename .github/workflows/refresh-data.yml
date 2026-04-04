@@ -22,4 +22,4 @@ jobs:
       - name: Restart app machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl machines restart --app fuelwatch-dashboard
+        run: flyctl machines list --app fuelwatch-dashboard --json | jq -r '.[].id' | xargs -I{} flyctl machines restart {} --app fuelwatch-dashboard
