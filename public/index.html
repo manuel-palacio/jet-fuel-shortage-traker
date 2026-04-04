@@ -697,6 +697,40 @@
       .side-nav.open{transform:translateX(0);}
       .main-wrapper{margin-left:0;}
     }
+
+    /* ============================================================ MOBILE-FIRST OVERRIDES */
+    @media(max-width:640px){
+      /* KPI cards — smaller values and tighter padding */
+      .kpi-card{padding:var(--space-3) var(--space-3);}
+      .kpi-value{font-size:22px;letter-spacing:-.3px;}
+      .kpi-label{font-size:8px;}
+      .kpi-sub{font-size:9px;}
+
+      /* Page header — stack vertically, smaller title */
+      .page-header{flex-direction:column;align-items:flex-start;gap:var(--space-2);margin-bottom:var(--space-4);}
+      .page-title{font-size:20px;}
+
+      /* Table — hide low-priority columns to eliminate horizontal scroll */
+      .col-routes,.col-updated,.col-source{display:none;}
+
+      /* Table cells — allow text to wrap on remaining columns */
+      tbody td{white-space:normal;}
+      .airline-cell{flex-wrap:wrap;}
+
+      /* Charts — reduce height on small screens */
+      .chart-canvas-wrap[style*="height:220px"]{height:160px!important;}
+      .chart-canvas-wrap[style*="height:200px"]{height:150px!important;}
+
+      /* Filter bar — reduce horizontal padding */
+      .filter-bar{padding:0 var(--space-3);}
+
+      /* Footer — stack vertically */
+      .site-footer{flex-direction:column;align-items:flex-start;gap:var(--space-3);}
+
+      /* Prevent any accidental overflow */
+      .main-content{overflow-x:hidden;}
+      .charts-section,.table-section,.kpi-grid{max-width:100%;}
+    }
   </style>
 </head>
 <body>
@@ -879,13 +913,13 @@
               <thead>
                 <tr>
                   <th class="sortable" data-col="airline" scope="col">Airline <span class="sort-icon" aria-hidden="true">↕</span></th>
-                  <th class="sortable" data-col="region" scope="col">Region <span class="sort-icon" aria-hidden="true">↕</span></th>
-                  <th scope="col">Routes / Airports</th>
+                  <th class="sortable col-region" data-col="region" scope="col">Region <span class="sort-icon" aria-hidden="true">↕</span></th>
+                  <th class="col-routes" scope="col">Routes / Airports</th>
                   <th class="sortable" data-col="cancellations" scope="col">Canceled <span class="sort-icon" aria-hidden="true">↕</span></th>
                   <th scope="col">Impact</th>
                   <th class="sortable" data-col="severity" scope="col">Severity <span class="sort-icon" aria-hidden="true">↕</span></th>
-                  <th class="sortable sort-desc" data-col="updated_at" scope="col">Updated <span class="sort-icon" aria-hidden="true">↓</span></th>
-                  <th scope="col">Source</th>
+                  <th class="sortable sort-desc col-updated" data-col="updated_at" scope="col">Updated <span class="sort-icon" aria-hidden="true">↓</span></th>
+                  <th class="col-source" scope="col">Source</th>
                 </tr>
               </thead>
               <tbody id="table-body"></tbody>
@@ -1401,13 +1435,13 @@ function renderTable(rows) {
       data-id="${esc(d.id)}"
     >
       <td class="td-primary"><div class="airline-cell"><span class="airline-code">${esc(d.airline_code)}</span>${esc(d.airline)}</div></td>
-      <td>${esc(d.region)}</td>
-      <td><div class="routes-chips">${chips}</div></td>
+      <td class="col-region">${esc(d.region)}</td>
+      <td class="col-routes"><div class="routes-chips">${chips}</div></td>
       <td class="num-cell ${ncls}">${d.cancellations}</td>
       <td><span class="impact-badge impact-${esc(d.impact_type)}">${impactLabel(d.impact_type)}</span></td>
       <td><span class="badge ${esc(d.severity)}"><span class="badge-dot" aria-hidden="true"></span>${esc(d.severity)}</span></td>
-      <td class="ts-cell">${fmtDate(d.updated_at)}</td>
-      <td><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer" class="source-link"
+      <td class="ts-cell col-updated">${fmtDate(d.updated_at)}</td>
+      <td class="col-source"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer" class="source-link"
           onclick="event.stopPropagation()" aria-label="Source: ${esc(d.source_name)} (opens new tab)">${esc(trunc(d.source_name,22))}</a></td>
     </tr>`;
   }).join('');
