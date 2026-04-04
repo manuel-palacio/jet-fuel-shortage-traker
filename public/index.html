@@ -711,11 +711,15 @@
       .page-title{font-size:20px;}
 
       /* Table — hide low-priority columns to eliminate horizontal scroll */
-      .col-routes,.col-updated,.col-source{display:none;}
+      /* Mobile keeps only: Airline | Canceled | Severity */
+      .col-region,.col-routes,.col-impact,.col-updated,.col-source{display:none;}
 
       /* Table cells — allow text to wrap on remaining columns */
       tbody td{white-space:normal;}
-      .airline-cell{flex-wrap:wrap;}
+      .airline-cell{flex-wrap:wrap;gap:4px;}
+      /* Keep table from overflowing its container */
+      .table-section{overflow:hidden;}
+      .table-wrap{overflow-x:auto;}
 
       /* Charts — reduce height on small screens */
       .chart-canvas-wrap[style*="height:220px"]{height:160px!important;}
@@ -916,7 +920,7 @@
                   <th class="sortable col-region" data-col="region" scope="col">Region <span class="sort-icon" aria-hidden="true">↕</span></th>
                   <th class="col-routes" scope="col">Routes / Airports</th>
                   <th class="sortable" data-col="cancellations" scope="col">Canceled <span class="sort-icon" aria-hidden="true">↕</span></th>
-                  <th scope="col">Impact</th>
+                  <th class="col-impact" scope="col">Impact</th>
                   <th class="sortable" data-col="severity" scope="col">Severity <span class="sort-icon" aria-hidden="true">↕</span></th>
                   <th class="sortable sort-desc col-updated" data-col="updated_at" scope="col">Updated <span class="sort-icon" aria-hidden="true">↓</span></th>
                   <th class="col-source" scope="col">Source</th>
@@ -1438,7 +1442,7 @@ function renderTable(rows) {
       <td class="col-region">${esc(d.region)}</td>
       <td class="col-routes"><div class="routes-chips">${chips}</div></td>
       <td class="num-cell ${ncls}">${d.cancellations}</td>
-      <td><span class="impact-badge impact-${esc(d.impact_type)}">${impactLabel(d.impact_type)}</span></td>
+      <td class="col-impact"><span class="impact-badge impact-${esc(d.impact_type)}">${impactLabel(d.impact_type)}</span></td>
       <td><span class="badge ${esc(d.severity)}"><span class="badge-dot" aria-hidden="true"></span>${esc(d.severity)}</span></td>
       <td class="ts-cell col-updated">${fmtDate(d.updated_at)}</td>
       <td class="col-source"><a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer" class="source-link"
