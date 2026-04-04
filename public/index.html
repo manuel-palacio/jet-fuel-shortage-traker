@@ -672,14 +672,36 @@
     }
     .footer-source-link:hover{color:var(--primary);text-decoration:none;}
 
+    /* Mobile nav toggle button — hidden on desktop */
+    .nav-toggle{
+      display:none;width:36px;height:36px;
+      align-items:center;justify-content:center;
+      border-radius:var(--radius);color:var(--text-secondary);
+      transition:background var(--transition),color var(--transition);
+      flex-shrink:0;
+    }
+    .nav-toggle:hover{background:var(--surface-container-high);color:var(--on-surface);}
+
+    /* Overlay behind the sidebar on mobile */
+    .nav-overlay{
+      display:none;position:fixed;inset:0;
+      background:rgba(6,14,32,.65);
+      z-index:calc(var(--z-sidebar) - 1);
+    }
+    .nav-overlay.open{display:block;}
+
     /* Responsive — collapse sidebar on mobile */
     @media(max-width:768px){
+      .nav-toggle{display:flex;}
       .side-nav{transform:translateX(-100%);transition:transform var(--transition-slow);}
+      .side-nav.open{transform:translateX(0);}
       .main-wrapper{margin-left:0;}
     }
   </style>
 </head>
 <body>
+
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
 <div id="app">
 
@@ -711,6 +733,9 @@
 
     <!-- HEADER -->
     <header class="site-header" role="banner">
+      <button class="nav-toggle" id="nav-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="side-nav">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
       <div class="header-page-title">Fleet Overview</div>
       <span class="header-sep">/</span>
       <span class="header-subtitle">Global Operations Center</span>
@@ -1851,6 +1876,33 @@ function updateTimestamp() {
    SECTION 15 — NAV
    ================================================================ */
 
+function initMobileNav() {
+  const toggle   = document.getElementById('nav-toggle');
+  const sideNav  = document.getElementById('side-nav');
+  const overlay  = document.getElementById('nav-overlay');
+
+  function openNav() {
+    sideNav.classList.add('open');
+    overlay.classList.add('open');
+    toggle.setAttribute('aria-expanded', 'true');
+    overlay.removeAttribute('aria-hidden');
+  }
+  function closeNav() {
+    sideNav.classList.remove('open');
+    overlay.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  toggle.addEventListener('click', () => {
+    sideNav.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+
+  // Expose closeNav for use in initNav
+  window._closeMobileNav = closeNav;
+}
+
 function initNav() {
   const items = document.querySelectorAll('.nav-item[data-nav]');
 
@@ -1895,6 +1947,8 @@ function initNav() {
       }
 
       setActive(nav);
+      // Close sidebar drawer on mobile after navigation
+      if (window._closeMobileNav) window._closeMobileNav();
     });
   });
 }
@@ -1906,6 +1960,7 @@ function initNav() {
 async function init() {
   showLoading();
   initTheme();
+  initMobileNav();
   initNav();
   try {
     const [disruptions, fuelPrices] = await Promise.all([
