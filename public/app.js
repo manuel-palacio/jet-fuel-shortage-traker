@@ -460,8 +460,8 @@ function renderAirportCards() {
   const html = AppState.airports.map(a => {
     const days = getAirportCoverDays(a);
     const cls = getCoverDaysClass(days);
-    const utilPct = Math.min(100, Math.round((a.daily_burn_ml / a.storage_capacity_ml) * 100));
-    const barColor = utilPct > 80 ? 'var(--c-critical)' : utilPct > 50 ? 'var(--c-high)' : 'var(--c-low)';
+    const drawPct = Math.min(100, Math.round((a.daily_burn_ml / a.storage_capacity_ml) * 100));
+    const barColor = drawPct > 80 ? 'var(--c-critical)' : drawPct > 50 ? 'var(--c-high)' : 'var(--c-low)';
     const depCls = a.import_dependency === 'HIGH' ? 'critical' : a.import_dependency === 'MED' ? 'high' : 'low';
 
     return `
@@ -490,16 +490,17 @@ function renderAirportCards() {
           <span class="airport-stat-value">${a.storage_capacity_ml.toFixed(1)} ML</span>
         </div>
         <div class="airport-stat">
-          <span class="airport-stat-label">Utilization</span>
-          <span class="airport-stat-value">${utilPct}%</span>
+          <span class="airport-stat-label">Daily Draw Rate</span>
+          <span class="airport-stat-value">${drawPct}% of capacity/day</span>
         </div>
-        <div class="capacity-bar"><div class="capacity-bar-fill" style="width:${utilPct}%;background:${barColor}"></div></div>
+        <div class="capacity-bar"><div class="capacity-bar-fill" style="width:${drawPct}%;background:${barColor}"></div></div>
         <div class="airport-stat">
           <span class="airport-stat-label">Import Dependency</span>
           <span class="badge ${depCls}" style="font-size:9px"><span class="badge-dot" aria-hidden="true"></span>${esc(a.import_dependency)}</span>
         </div>
       </div>
       <div class="airport-notes">${esc(a.notes)}</div>
+      <div class="airport-notes" style="font-style:italic;opacity:.7">Estimates modelled from public data on airport size, regional refinery access, and pipeline infrastructure. Not sourced from live inventory feeds.</div>
     </div>`;
   }).join('');
 
