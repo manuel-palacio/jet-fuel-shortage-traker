@@ -1077,6 +1077,17 @@ function initNav() {
       location.hash = '#' + item.dataset.nav;
     });
   });
+
+  // Sidebar collapse toggle (desktop only)
+  const collapseBtn = document.getElementById('nav-collapse');
+  const sideNav = document.getElementById('side-nav');
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', () => {
+      sideNav.classList.toggle('collapsed');
+      // Invalidate map size if visible
+      if (mapInstance) setTimeout(() => mapInstance.invalidateSize(), 350);
+    });
+  }
 }
 
 /* ================================================================
