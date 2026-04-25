@@ -117,7 +117,7 @@ Not all data in this dashboard comes from live APIs. The table below clarifies w
 | Data | Source | Live? | Notes |
 |------|--------|-------|-------|
 | **Jet fuel prices** | [EIA API v2](https://www.eia.gov/opendata/) | **Yes** — refreshed every 6h | US Gulf Coast Kerosene-Type Jet Fuel spot price (EPJK/RGC). Weekly frequency, $/gallon. Fetched server-side by `entrypoint.sh`. |
-| **Disruption events** | Hand-curated seed data | **No** — static JSON | 8 illustrative events based on realistic scenarios. Not sourced from any live airline or aviation authority feed. To add real events, edit `public/data/disruptions.json`. |
+| **Disruption events** | [Google News RSS](https://news.google.com/) | **Yes** — refreshed every 6h | `entrypoint.sh` fetches Google News RSS for fuel disruption keywords, parses with xmlstarlet + jq, extracts airline/country/severity from headlines. Falls back to empty array locally. |
 | **Airport list** | Hand-curated | **No** — static JSON | 16 major European airports selected manually. Coordinates are real (from public aviation databases). |
 | **Storage capacity (ML)** | Modelled estimate | **No** — fabricated | Plausible values based on airport size and hub status. Real fuel storage capacities are commercially sensitive and not publicly available. |
 | **Daily burn (ML/day)** | Modelled estimate | **No** — fabricated | Rough estimates based on airport traffic volume. Not sourced from actual fuel uplift data. |
@@ -140,18 +140,61 @@ To move beyond illustrative estimates, you would need:
 
 ## Run Locally
 
+There are three ways to run the dashboard locally, each with different levels of data availability:
+
+### Option 1: Static file server (no API data)
+
+Serves the app with seed/empty data — no Docker, no API keys needed.
+
 ```bash
-# Simple — open directly (uses seed data):
-open public/index.html
+# Using Python:
+cd public && python3 -m http.server 8080
+# open http://localhost:8080
 
-# Or serve via HTTP:
+# Using npx:
 npx serve public
-# then open http://localhost:3000
+# open http://localhost:3000
 
-# Full Docker build with live EIA:
+# Using IntelliJ/WebStorm:
+# Right-click public/index.html → Open in → Browser
+# Or use the built-in HTTP server (port shown in toolbar)
+```
+
+Fuel prices and disruption news will be empty (seed data). Airport data loads from `public/data/airports.json`.
+
+### Option 2: Docker with live EIA data
+
+Runs the full server-side pipeline — fetches live fuel prices and news at container start.
+
+```bash
 docker build -t fuelwatch .
 docker run -p 8080:80 -e EIA_API_KEY=your_key_here fuelwatch
+# open http://localhost:8080
 ```
+
+Get a free EIA API key at https://www.eia.gov/opendata/
+
+### Option 3: IntelliJ with local data pre-population
+
+If you want to run from IntelliJ with data but without Docker:
+
+```bash
+# 1. Fetch fuel prices locally (one-time):
+curl -gs "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=YOUR_KEY&frequency=weekly&data[0]=value&facets[product][]=EPJK&facets[duoarea][]=RGC&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=200" \
+  | jq '[.response.data[] | select(.value != null) | {date:.period, price:(.value|tonumber), source:"EIA EPJK/RGC (live)", series_id:"EPJK_RGC"}] | sort_by(.date)' \
+  > public/data/fuel-prices.json
+
+# 2. Fetch news locally (one-time):
+curl -gsL "https://news.google.com/rss/search?q=jet+fuel+shortage+OR+airline+fuel+crisis&hl=en&gl=US&ceid=US:en" \
+  | xmlstarlet sel -t -m "//item" -v "title" -o "$(printf '\t')" -v "link" -o "$(printf '\t')" -v "pubDate" -o "$(printf '\t')" -v "source" -n 2>/dev/null \
+  | head -10 | while IFS=$'\t' read -r title link date source; do
+    echo "{\"summary\":\"${title% - *}\",\"source_name\":\"$source\",\"source_url\":\"$link\",\"updated_at\":\"$date\",\"severity\":\"medium\",\"impact_type\":\"fuel_risk\"}"
+  done | jq -s '.' > public/data/disruptions.json
+
+# 3. Open in IntelliJ → right-click public/index.html → Open in Browser
+```
+
+**Note:** `xmlstarlet` is required for step 2 (`brew install xmlstarlet` on macOS).
 
 ---
 
