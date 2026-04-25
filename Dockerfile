@@ -8,8 +8,8 @@
 
 FROM nginx:alpine
 
-# curl + jq: used by entrypoint.sh to fetch and parse EIA data at startup
-RUN apk add --no-cache curl jq
+# curl + jq + xmlstarlet: used by entrypoint.sh to fetch EIA data and parse Google News RSS
+RUN apk add --no-cache curl jq xmlstarlet
 
 # Remove default nginx content
 RUN rm -rf /usr/share/nginx/html/*

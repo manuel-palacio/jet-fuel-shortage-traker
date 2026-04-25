@@ -280,7 +280,7 @@ function renderTable(rows, tbodyId, countId) {
                 + (more > 0 ? `<span class="route-chip-more">+${more}</span>` : '');
     const ncls  = d.cancellations >= 40 ? 'high-num' : d.cancellations >= 15 ? 'med-num' : '';
     return `<tr tabindex="0" role="button" aria-label="View details: ${esc(d.airline)} event ${esc(d.id)}" data-id="${esc(d.id)}">
-      <td class="td-primary"><div class="airline-cell"><span class="airline-code">${esc(d.airline_code)}</span>${esc(d.airline)}</div></td>
+      <td class="td-primary"><div class="airline-cell">${d.airline_code ? `<span class="airline-code">${esc(d.airline_code)}</span>` : ''}${esc(d.airline || d.summary || 'News item')}</div></td>
       <td class="${isOverview ? 'col-region' : ''}">${esc(d.region)}</td>
       <td class="${isOverview ? 'col-routes' : ''}"><div class="routes-chips">${chips}</div></td>
       <td class="num-cell ${ncls}">${d.cancellations}</td>
@@ -707,8 +707,8 @@ function openDrawer(eventId) {
   if (!ev) return;
   AppState.selectedEventId = eventId;
 
-  document.getElementById('drawer-airline-name').textContent = ev.airline;
-  document.getElementById('drawer-event-id').textContent = ev.id + ' \u00B7 ' + ev.region;
+  document.getElementById('drawer-airline-name').textContent = ev.airline || ev.summary || ev.id;
+  document.getElementById('drawer-event-id').textContent = ev.id + (ev.region ? ' \u00B7 ' + ev.region : '');
   renderDrawerContent(ev);
 
   document.getElementById('drawer-overlay').classList.add('open');
