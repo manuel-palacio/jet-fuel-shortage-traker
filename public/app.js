@@ -802,7 +802,7 @@ function applyAndRender() {
   renderTable(rows);
   renderTimelineChart(rows);
   renderDonutChart(rows);
-  renderTable(sortDisruptions(AppState.disruptions), 'table-body-full', 'table-count-full');
+  renderTable(sortDisruptions(getFilteredDisruptions()), 'table-body-full', 'table-count-full');
   renderAirportCards();
   if (mapInitialized) updateMapMarkers();
   updateSummerBanner();
