@@ -174,28 +174,6 @@ docker run -p 8080:80 -e EIA_API_KEY=your_key_here fuelwatch
 
 Get a free EIA API key at https://www.eia.gov/opendata/
 
-### Option 3: IntelliJ with local data pre-population
-
-If you want to run from IntelliJ with data but without Docker:
-
-```bash
-# 1. Fetch fuel prices locally (one-time):
-curl -gs "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=YOUR_KEY&frequency=weekly&data[0]=value&facets[product][]=EPJK&facets[duoarea][]=RGC&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=200" \
-  | jq '[.response.data[] | select(.value != null) | {date:.period, price:(.value|tonumber), source:"EIA EPJK/RGC (live)", series_id:"EPJK_RGC"}] | sort_by(.date)' \
-  > public/data/fuel-prices.json
-
-# 2. Fetch news locally (one-time):
-curl -gsL "https://news.google.com/rss/search?q=jet+fuel+shortage+OR+airline+fuel+crisis&hl=en&gl=US&ceid=US:en" \
-  | xmlstarlet sel -t -m "//item" -v "title" -o "$(printf '\t')" -v "link" -o "$(printf '\t')" -v "pubDate" -o "$(printf '\t')" -v "source" -n 2>/dev/null \
-  | head -10 | while IFS=$'\t' read -r title link date source; do
-    echo "{\"summary\":\"${title% - *}\",\"source_name\":\"$source\",\"source_url\":\"$link\",\"updated_at\":\"$date\",\"severity\":\"medium\",\"impact_type\":\"fuel_risk\"}"
-  done | jq -s '.' > public/data/disruptions.json
-
-# 3. Open in IntelliJ → right-click public/index.html → Open in Browser
-```
-
-**Note:** `xmlstarlet` is required for step 2 (`brew install xmlstarlet` on macOS).
-
 ---
 
 ## Deploy to Fly.io
