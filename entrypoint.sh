@@ -57,7 +57,7 @@ fetch_disruption_news() {
   local query="jet+fuel+shortage+OR+kerosene+supply+disruption+OR+airline+fuel+crisis+OR+aviation+fuel+supply"
   local ua="Mozilla/5.0 (compatible; FuelWatch/1.0; +https://fuelwatch-dashboard.fly.dev)"
 
-  if ! curl -sf -A "$ua" \
+  if ! curl -sLf -A "$ua" \
     "https://news.google.com/rss/search?q=${query}&hl=en&gl=US&ceid=US:en" \
     -o "$tmp"; then
     echo "News fetch failed — keeping existing disruptions.json"
@@ -140,7 +140,7 @@ fetch_disruption_news() {
       timeline:          [],
       source_name:       ($fields[3] // "News"),
       source_url:        ($fields[1] // "#"),
-      updated_at:        ($fields[2] // now | todate),
+      updated_at:        ($fields[2] // ""),
       _source_type:      "google_news_rss"
     }] | if length > 0 then . else empty end
   ' > /tmp/news_disruptions.json 2>/dev/null
