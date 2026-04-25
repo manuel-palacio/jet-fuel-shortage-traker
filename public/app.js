@@ -1076,6 +1076,28 @@ function initNav() {
 }
 
 /* ================================================================
+   INFO POPOVER
+   ================================================================ */
+
+function initInfoPopover() {
+  const btn = document.getElementById('info-btn');
+  const popover = document.getElementById('info-popover');
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    popover.classList.toggle('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!btn.contains(e.target)) popover.classList.remove('open');
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') popover.classList.remove('open');
+  });
+}
+
+/* ================================================================
    INIT
    ================================================================ */
 
@@ -1086,6 +1108,7 @@ async function init() {
   initNav();
   initRouting();
   initSummerToggle();
+  initInfoPopover();
 
   try {
     const [disruptions, fuelPrices, airports] = await Promise.all([

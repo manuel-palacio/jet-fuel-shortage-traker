@@ -866,6 +866,37 @@
     .view-section{animation:fadeIn 200ms ease;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
+    /* ============================================================ INFO POPOVER */
+    .info-btn{
+      width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+      border-radius:var(--radius);color:var(--text-secondary);
+      transition:background var(--transition),color var(--transition);
+      font-size:16px;flex-shrink:0;position:relative;
+    }
+    .info-btn:hover{background:var(--surface-container-high);color:var(--on-surface);}
+    .info-popover{
+      display:none;position:absolute;top:calc(100% + 8px);right:0;
+      width:320px;padding:var(--space-5);
+      background:var(--surface-container-highest);
+      border:1px solid var(--border-mid);
+      border-radius:var(--radius-lg);
+      box-shadow:var(--shadow-lg);
+      z-index:50;
+      font-size:12px;line-height:1.7;color:var(--text-secondary);
+    }
+    .info-popover.open{display:block;}
+    .info-popover-title{
+      font-family:var(--font-display);font-size:14px;font-weight:700;
+      color:var(--on-surface);margin-bottom:var(--space-3);
+    }
+    .info-popover ul{margin:var(--space-2) 0;padding-left:var(--space-5);}
+    .info-popover li{margin-bottom:var(--space-1);}
+    .info-popover-footer{
+      margin-top:var(--space-3);padding-top:var(--space-3);
+      border-top:1px solid var(--border);
+      font-family:var(--font-mono);font-size:10px;color:var(--text-muted);
+    }
+
     /* ============================================================ DATA SOURCE BADGE */
     .data-source-badge{
       display:inline-flex;align-items:center;gap:4px;
@@ -927,6 +958,22 @@
       </div>
       <div class="header-spacer"></div>
       <time class="header-ts" id="header-ts-full" aria-label="Last refreshed"></time>
+      <button class="info-btn" id="info-btn" aria-label="About this dashboard" title="About">
+        <span class="material-symbols-outlined">info</span>
+        <div class="info-popover" id="info-popover" role="tooltip">
+          <div class="info-popover-title">FuelWatch Dashboard</div>
+          <p>Real-time intelligence on jet fuel shortages affecting European aviation.</p>
+          <ul>
+            <li><strong>Overview</strong> — KPIs, fuel prices, and disruption events</li>
+            <li><strong>Airports</strong> — Fuel stockpile levels at 15 major European airports</li>
+            <li><strong>Map</strong> — Geographic risk view with color-coded bubbles</li>
+            <li><strong>Disruptions</strong> — Full event log across all airlines</li>
+            <li><strong>Analytics</strong> — Price trends, regional breakdown, seasonal demand</li>
+          </ul>
+          <p>Toggle <strong>Summer Mode</strong> to apply a +35% peak-season demand multiplier to cover-day estimates.</p>
+          <div class="info-popover-footer">Fuel prices: EIA EPJK/RGC (US Gulf Coast Kerosene) · Refreshed every 6h</div>
+        </div>
+      </button>
       <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
         <span id="theme-icon" aria-hidden="true">☀️</span>
       </button>
