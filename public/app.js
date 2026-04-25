@@ -227,7 +227,7 @@ function renderKPIs(disruptions, fuelPrices, airports) {
   const riskColors = { LOW: '--c-low', MEDIUM: '--c-medium', HIGH: '--c-high', CRITICAL: '--error' };
 
   const cards = [
-    { label: 'Avg. Cover Days', value: kpi.avgCoverDays != null ? kpi.avgCoverDays.toFixed(1) : '\u2014', extra: AppState.summerMode ? '<span class="kpi-delta neutral">summer-adjusted</span>' : '', sub: 'Mean days of fuel coverage across 15 airports', accent: '--primary' },
+    { label: 'Avg. Cover Days', value: kpi.avgCoverDays != null ? kpi.avgCoverDays.toFixed(1) : '\u2014', extra: AppState.summerMode ? '<span class="kpi-delta neutral">summer-adjusted</span>' : '', sub: 'Modelled estimates \u00B7 ' + kpi.totalAirports + ' airports', accent: '--primary' },
     { label: 'Airports at Risk', value: kpi.airportsAtRisk + ' / ' + kpi.totalAirports, extra: '', sub: AppState.summerMode ? 'Below 10 days cover (summer)' : 'Below 7 days cover', accent: kpi.airportsAtRisk > 0 ? '--error' : '--c-low', clickable: true, target: '#airports' },
     { label: 'Jet Fuel Price', value: fmtP(kpi.latestPrice), valueClass: 'accent', extra: deltaHTML, sub: 'US Gulf Coast Kerosene \u00B7 7-week \u0394', accent: '--primary' },
     { label: 'Import Risk Index', value: kpi.importRiskLevel, extra: `<div class="risk-tooltip-wrap"><span class="kpi-delta neutral" style="cursor:help">score: ${kpi.importRiskScore}</span><div class="risk-tooltip">Composite of import dependency,<br>supply coverage, and fuel price stress</div></div>`, sub: 'Composite supply risk', accent: riskColors[kpi.importRiskLevel] || '--primary' },

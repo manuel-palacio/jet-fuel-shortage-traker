@@ -193,5 +193,18 @@
     "cover_days": 10.0,
     "import_dependency": "MED",
     "notes": "Sines refinery pipeline access. Growing tourism traffic straining supply margins."
+  },
+  {
+    "code": "ARN",
+    "name": "Stockholm Arlanda",
+    "city": "Stockholm",
+    "country": "Sweden",
+    "lat": 59.6519,
+    "lon": 17.9186,
+    "storage_capacity_ml": 12.0,
+    "daily_burn_ml": 1.1,
+    "cover_days": 10.9,
+    "import_dependency": "HIGH",
+    "notes": "No nearby refineries. Supplied by tanker via G\u00f6teborg and rail from Preem Lysekil refinery."
   }
 ]
