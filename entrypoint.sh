@@ -120,16 +120,43 @@ fetch_disruption_news() {
       elif test("Latin|Brazil|Mexico|Caribbean"; "i") then "Latin America"
       else "North America" end;
 
+    # Country heuristic from headline keywords
+    def guess_country:
+      if test("\\bUK\\b|Britain|British|London|Heathrow"; "i") then "UK"
+      elif test("Germany|German|Frankfurt|Munich|Lufthansa|Berlin"; "i") then "Germany"
+      elif test("France|French|Paris|CDG|Air France"; "i") then "France"
+      elif test("Netherlands|Dutch|Amsterdam|Schiphol|KLM"; "i") then "Netherlands"
+      elif test("Spain|Spanish|Madrid|Barcelona|Iberia"; "i") then "Spain"
+      elif test("Italy|Italian|Rome|Fiumicino|Milan"; "i") then "Italy"
+      elif test("Switzerland|Swiss|Zurich"; "i") then "Switzerland"
+      elif test("Austria|Vienna"; "i") then "Austria"
+      elif test("Turkey|Turkish|Istanbul"; "i") then "Turkey"
+      elif test("Ireland|Irish|Dublin|Ryanair"; "i") then "Ireland"
+      elif test("Denmark|Danish|Copenhagen|SAS"; "i") then "Denmark"
+      elif test("Norway|Norwegian|Oslo"; "i") then "Norway"
+      elif test("Sweden|Swedish|Stockholm"; "i") then "Sweden"
+      elif test("Portugal|Lisbon"; "i") then "Portugal"
+      elif test("\\bUS\\b|U\\.S\\.|America|American|United States|California|Texas|New York|DFW|LAX|JFK|ORD"; "i") then "US"
+      elif test("Canada|Canadian|Toronto"; "i") then "Canada"
+      elif test("China|Chinese|Beijing|Shanghai"; "i") then "China"
+      elif test("Japan|Japanese|Tokyo"; "i") then "Japan"
+      elif test("India|Indian|Mumbai|Delhi"; "i") then "India"
+      elif test("Australia|Australian|Sydney|Melbourne"; "i") then "Australia"
+      elif test("\\bEU\\b|Europe|European"; "i") then "EU-wide"
+      else "" end;
+
     [split("\n")[] | select(length > 0) | split("\t") | select(length >= 4) |
     . as $fields |
     ($fields[0] | capture("(?<a>United Airlines|American Airlines|Delta Air Lines|SAS|Lufthansa|Ryanair|easyJet|Air France|KLM|British Airways|Air New Zealand|Turkish Airlines|Iberia|Norwegian|Wizz Air|Vueling|Southwest Airlines|JetBlue|Spirit Airlines|Frontier Airlines)"; "i").a // "") as $airline |
     (if $airline != "" then (airline_lookup[$airline] // ["",""])[0] else "" end) as $code |
     (if $airline != "" then (airline_lookup[$airline] // ["",""])[1] else ($fields[0] | guess_region) end) as $region |
+    ($fields[0] | guess_country) as $country |
     {
       id:                ("NEWS-" + ($fields[0] | gsub("[^a-zA-Z0-9]"; "")[0:16])),
       airline:           $airline,
       airline_code:      $code,
       region:            $region,
+      country:           $country,
       routes:            [],
       airports:          [],
       cancellations:     0,

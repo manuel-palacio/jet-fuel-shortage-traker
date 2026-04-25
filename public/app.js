@@ -69,6 +69,7 @@ function normalizeDisruptionData(raw) {
     airline:           String(r.airline || ''),
     airline_code:      String(r.airline_code || ''),
     region:            String(r.region || ''),
+    country:           String(r.country || ''),
     routes:            Array.isArray(r.routes)   ? r.routes.map(String)   : [],
     airports:          Array.isArray(r.airports) ? r.airports.map(String) : [],
     cancellations:     parseInt(r.cancellations, 10) || 0,
@@ -102,7 +103,7 @@ const AppState = {
   disruptions: [],
   fuelPrices:  [],
   airports:    [],
-  filters: { airline: '', region: '', impactType: '', severity: '', search: '' },
+  filters: { airline: '', region: '', country: '', impactType: '', severity: '', search: '' },
   sort:    { col: 'updated_at', dir: 'desc' },
   selectedEventId: null,
   _lastFocusedRow: null,
@@ -117,11 +118,12 @@ const AppState = {
    ================================================================ */
 
 function getFilteredDisruptions() {
-  const { airline, region, impactType, severity, search } = AppState.filters;
+  const { airline, region, country, impactType, severity, search } = AppState.filters;
   const q = search.toLowerCase().trim();
   return AppState.disruptions.filter(d => {
     if (airline    && d.airline     !== airline)    return false;
     if (region     && d.region      !== region)     return false;
+    if (country    && d.country     !== country)    return false;
     if (impactType && d.impact_type !== impactType) return false;
     if (severity   && d.severity    !== severity)   return false;
     if (q) {
@@ -780,15 +782,18 @@ function renderDrawerContent(ev) {
    ================================================================ */
 
 function populateFilterOptions() {
-  const airlines = [...new Set(AppState.disruptions.map(d => d.airline))].sort();
-  const regions  = [...new Set(AppState.disruptions.map(d => d.region))].sort();
+  const airlines  = [...new Set(AppState.disruptions.map(d => d.airline).filter(Boolean))].sort();
+  const regions   = [...new Set(AppState.disruptions.map(d => d.region).filter(Boolean))].sort();
+  const countries = [...new Set(AppState.disruptions.map(d => d.country).filter(Boolean))].sort();
   const fill = (id, vals) => {
     const el = document.getElementById(id);
+    if (!el) return;
     const first = el.options[0].outerHTML;
     safeHTML(el, first + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join(''));
   };
   fill('filter-airline', airlines);
   fill('filter-region', regions);
+  fill('filter-country', countries);
 }
 
 function applyAndRender() {
@@ -804,7 +809,7 @@ function applyAndRender() {
 }
 
 function initFilters() {
-  const map = { 'filter-airline': 'airline', 'filter-region': 'region', 'filter-impact': 'impactType', 'filter-severity': 'severity' };
+  const map = { 'filter-airline': 'airline', 'filter-region': 'region', 'filter-country': 'country', 'filter-impact': 'impactType', 'filter-severity': 'severity' };
   Object.keys(map).forEach(id => {
     document.getElementById(id).addEventListener('change', e => {
       AppState.filters[map[id]] = e.target.value;
@@ -819,8 +824,8 @@ function initFilters() {
   });
 
   document.getElementById('filter-clear').addEventListener('click', () => {
-    AppState.filters = { airline: '', region: '', impactType: '', severity: '', search: '' };
-    ['filter-airline', 'filter-region', 'filter-impact', 'filter-severity'].forEach(id => { document.getElementById(id).value = ''; });
+    AppState.filters = { airline: '', region: '', country: '', impactType: '', severity: '', search: '' };
+    ['filter-airline', 'filter-region', 'filter-country', 'filter-impact', 'filter-severity'].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('filter-search').value = '';
     applyAndRender();
   });
