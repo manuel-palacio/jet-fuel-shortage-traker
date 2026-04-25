@@ -14,18 +14,22 @@
 DATA_DIR=/usr/share/nginx/html/data
 mkdir -p "$DATA_DIR"
 
-# ── EIA data fetch ────────────────────────────────────────────────────────────
-if [ -n "$EIA_API_KEY" ]; then
+# ── Fuel price fetch function ─────────────────────────────────────────────────
+fetch_fuel_prices() {
+  if [ -z "$EIA_API_KEY" ]; then
+    echo "EIA_API_KEY not set — using seed data"
+    return 1
+  fi
+
   echo "Fetching EIA Gulf Coast jet fuel prices (EPJK/RGC)..."
+  local tmp=$(mktemp)
 
   # -g disables curl's glob expansion so square brackets in the URL are literal
-  HTTP_STATUS=$(curl -gs -o /tmp/eia_raw.json -w "%{http_code}" \
+  HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
     "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${EIA_API_KEY}&frequency=weekly&data[0]=value&facets[product][]=EPJK&facets[duoarea][]=RGC&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=200")
 
   if [ "$HTTP_STATUS" = "200" ]; then
     # Transform EIA response into the app's schema using jq
-    # Input:  {"response":{"data":[{"period":"2026-03-27","value":"4.009",...}]}}
-    # Output: [{"date":"2026-03-27","price":4.009,"source":"...","series_id":"..."}]
     jq '[.response.data[]
          | select(.value != null)
          | {
@@ -35,17 +39,22 @@ if [ -n "$EIA_API_KEY" ]; then
              series_id: "EPJK_RGC"
            }]
        | sort_by(.date)' \
-      /tmp/eia_raw.json > "$DATA_DIR/fuel-prices.json"
+      "$tmp" > "$DATA_DIR/fuel-prices.json"
 
     RECORD_COUNT=$(jq 'length' "$DATA_DIR/fuel-prices.json")
     LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/gal"' "$DATA_DIR/fuel-prices.json")
     echo "fuel-prices.json written: ${RECORD_COUNT} records, latest: ${LATEST}"
   else
-    echo "EIA fetch failed (HTTP ${HTTP_STATUS}) — browser will fall back to seed data"
+    echo "EIA fetch failed (HTTP ${HTTP_STATUS}) — keeping existing data"
   fi
-else
-  echo "EIA_API_KEY not set — browser will use seed data"
-fi
+  rm -f "$tmp"
+}
+
+# ── Initial fetch ────────────────────────────────────────────────────────────
+fetch_fuel_prices
+
+# ── Background refresh every 6 hours ─────────────────────────────────────────
+(while true; do sleep 21600; fetch_fuel_prices; done) &
 
 # ── config.js (no API keys needed client-side) ────────────────────────────────
 cat > /usr/share/nginx/html/config.js <<'EOF'
