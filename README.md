@@ -110,6 +110,34 @@ Free API key: https://www.eia.gov/opendata/
 
 ---
 
+## Data Sources & Limitations
+
+Not all data in this dashboard comes from live APIs. The table below clarifies what is real, what is modelled, and what is static seed data.
+
+| Data | Source | Live? | Notes |
+|------|--------|-------|-------|
+| **Jet fuel prices** | [EIA API v2](https://www.eia.gov/opendata/) | **Yes** — refreshed every 6h | US Gulf Coast Kerosene-Type Jet Fuel spot price (EPJK/RGC). Weekly frequency, $/gallon. Fetched server-side by `entrypoint.sh`. |
+| **Disruption events** | Hand-curated seed data | **No** — static JSON | 8 illustrative events based on realistic scenarios. Not sourced from any live airline or aviation authority feed. To add real events, edit `public/data/disruptions.json`. |
+| **Airport list** | Hand-curated | **No** — static JSON | 16 major European airports selected manually. Coordinates are real (from public aviation databases). |
+| **Storage capacity (ML)** | Modelled estimate | **No** — fabricated | Plausible values based on airport size and hub status. Real fuel storage capacities are commercially sensitive and not publicly available. |
+| **Daily burn (ML/day)** | Modelled estimate | **No** — fabricated | Rough estimates based on airport traffic volume. Not sourced from actual fuel uplift data. |
+| **Cover days** | Derived | Computed | `storage_capacity_ml / daily_burn_ml`. Only as accurate as the two modelled inputs. |
+| **Import dependency** | Modelled estimate | **No** — directionally correct | Based on publicly known refinery and pipeline geography (e.g., Switzerland has no refineries → HIGH). The HIGH/MED/LOW ratings are defensible but not sourced from a specific dataset. |
+| **Import Risk Index** | Computed composite | Computed | Combines import dependency scores, cover-day stress, and fuel price level. Formula in `app.js computeKPIs()`. |
+| **Summer demand multiplier** | IATA estimate | **No** — fixed constant | +35% based on IATA peak-season load factor data. Applied uniformly to all airports when Summer Mode is active. |
+| **Seasonality chart** | Modelled index | **No** — illustrative | Monthly demand index (80–135) showing Jun–Aug peak. Not sourced from per-airport consumption data. |
+
+### What would make this production-grade
+
+To move beyond illustrative estimates, you would need:
+
+- **Airport fuel inventory** — Data partnerships with airport fuel consortia (e.g., AFQRJOS at Heathrow, Schiphol fuel consortium) or energy intelligence providers (Platts, Argus, Wood Mackenzie)
+- **Live disruption events** — Integration with airline ops feeds, EUROCONTROL, or FlightAware
+- **Per-airport consumption** — Actual fuel uplift volumes from airport authorities or IATA statistics
+- **Regional refinery output** — IEA or national energy agency data on refinery throughput and jet fuel yield
+
+---
+
 ## Run Locally
 
 ```bash
