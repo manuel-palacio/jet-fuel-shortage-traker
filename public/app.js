@@ -136,13 +136,12 @@ const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
 function sortDisruptions(rows) {
   const { col, dir } = AppState.sort;
+  const mult = dir === 'asc' ? 1 : -1;
   return [...rows].sort((a, b) => {
-    let av = a[col], bv = b[col];
-    if (col === 'severity')     { av = SEV_ORDER[av] ?? 99; bv = SEV_ORDER[bv] ?? 99; }
-    else if (typeof av === 'string') { av = av.toLowerCase(); bv = (bv || '').toLowerCase(); }
-    if (av < bv) return dir === 'asc' ? -1 :  1;
-    if (av > bv) return dir === 'asc' ?  1 : -1;
-    return 0;
+    let av = a[col] ?? '', bv = b[col] ?? '';
+    if (col === 'severity') { av = SEV_ORDER[av] ?? 99; bv = SEV_ORDER[bv] ?? 99; }
+    else if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv).toLowerCase(); }
+    return (av < bv ? -1 : av > bv ? 1 : 0) * mult;
   });
 }
 
