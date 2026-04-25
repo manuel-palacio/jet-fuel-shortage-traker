@@ -499,7 +499,6 @@ function renderAirportCards() {
         </div>
       </div>
       <div class="airport-notes">${esc(a.notes)}</div>
-      <div class="airport-notes" style="font-style:italic;opacity:.7">Estimates modelled from public data on airport size, regional refinery access, and pipeline infrastructure. Not sourced from live inventory feeds.</div>
     </div>`;
   }).join('');
 
