@@ -4,7 +4,7 @@
 #      fly deploy               (every deploy)
 
 app = "fuelwatch-dashboard"
-primary_region = "iad"
+primary_region = "arn"
 
 [build]
   # Uses the Dockerfile in the repo root
