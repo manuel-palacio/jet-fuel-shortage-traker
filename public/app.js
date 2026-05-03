@@ -29,7 +29,7 @@ function safeHTML(el, html) {
 
 async function fetchFuelPrices() {
   try {
-    const resp = await fetch('/data/fuel-prices.json');
+    const resp = await fetch('/data/energy/fuel-prices.json');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const raw = await resp.json();
     if (Array.isArray(raw) && raw.length) return normalizeFuelPriceData(raw);
@@ -54,7 +54,7 @@ function normalizeFuelPriceData(raw) {
 
 async function fetchDisruptionEvents() {
   try {
-    const resp = await fetch('/data/disruptions.json');
+    const resp = await fetch('/data/energy/disruptions.json');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return normalizeDisruptionData(await resp.json());
   } catch (err) {
@@ -86,7 +86,7 @@ function normalizeDisruptionData(raw) {
 
 async function fetchAirports() {
   try {
-    const resp = await fetch('/data/airports.json');
+    const resp = await fetch('/data/energy/airports.json');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return await resp.json();
   } catch (err) {

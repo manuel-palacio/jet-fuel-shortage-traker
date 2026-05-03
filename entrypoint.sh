@@ -12,7 +12,7 @@
 #   fly secrets set EIA_API_KEY=your_key_here
 
 DATA_DIR=/usr/share/nginx/html/data
-mkdir -p "$DATA_DIR"
+mkdir -p "$DATA_DIR/energy" "$DATA_DIR/food"
 
 # ── Fuel price fetch function ─────────────────────────────────────────────────
 fetch_fuel_prices() {
@@ -39,10 +39,10 @@ fetch_fuel_prices() {
              series_id: "EPJK_RGC"
            }]
        | sort_by(.date)' \
-      "$tmp" > "$DATA_DIR/fuel-prices.json"
+      "$tmp" > "$DATA_DIR/energy/fuel-prices.json"
 
-    RECORD_COUNT=$(jq 'length' "$DATA_DIR/fuel-prices.json")
-    LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/gal"' "$DATA_DIR/fuel-prices.json")
+    RECORD_COUNT=$(jq 'length' "$DATA_DIR/energy/fuel-prices.json")
+    LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/gal"' "$DATA_DIR/energy/fuel-prices.json")
     echo "fuel-prices.json written: ${RECORD_COUNT} records, latest: ${LATEST}"
   else
     echo "EIA fetch failed (HTTP ${HTTP_STATUS}) — keeping existing data"
@@ -175,7 +175,7 @@ fetch_disruption_news() {
   local count=$(jq 'length' /tmp/news_disruptions.json 2>/dev/null || echo 0)
 
   if [ "$count" -gt 0 ] 2>/dev/null; then
-    cp /tmp/news_disruptions.json "$DATA_DIR/disruptions.json"
+    cp /tmp/news_disruptions.json "$DATA_DIR/energy/disruptions.json"
     echo "disruptions.json written: ${count} news items (live)"
   else
     echo "No news items parsed — keeping existing disruptions.json"
