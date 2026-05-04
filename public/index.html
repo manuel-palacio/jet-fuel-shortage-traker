@@ -37,28 +37,7 @@
   <!-- ============================================================ SIDEBAR NAV -->
   <aside class="side-nav" id="side-nav" aria-label="Main navigation">
     <div class="nav-brand">Aviation Disruption Tracker</div>
-    <nav class="nav-items" role="navigation">
-      <a class="nav-item active" href="#overview" data-nav="overview" aria-current="page">
-        <span class="material-symbols-outlined">dashboard</span>
-        Overview
-      </a>
-      <a class="nav-item" href="#airports" data-nav="airports">
-        <span class="material-symbols-outlined">local_airport</span>
-        Airports
-      </a>
-      <a class="nav-item" href="#map" data-nav="map">
-        <span class="material-symbols-outlined">map</span>
-        Map
-      </a>
-      <a class="nav-item" href="#disruptions" data-nav="disruptions">
-        <span class="material-symbols-outlined">warning</span>
-        Disruptions
-      </a>
-      <a class="nav-item" href="#analytics" data-nav="analytics">
-        <span class="material-symbols-outlined">trending_up</span>
-        Analytics
-      </a>
-    </nav>
+    <nav class="nav-items" id="nav-items" role="navigation"></nav>
     <button class="nav-collapse-btn" id="nav-collapse" aria-label="Collapse sidebar">
       <span class="material-symbols-outlined">chevron_left</span>
       Collapse
@@ -68,12 +47,14 @@
   <!-- ============================================================ MAIN WRAPPER -->
   <div class="main-wrapper">
 
+    <div class="mode-tabs" id="mode-tabs" role="tablist" aria-label="Select tracker mode"></div>
+
     <!-- HEADER -->
     <header class="site-header" role="banner">
       <button class="nav-toggle" id="nav-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="side-nav">
         <span class="material-symbols-outlined">menu</span>
       </button>
-      <div class="header-page-title">Fleet Overview</div>
+      <div class="header-page-title" id="header-page-title">…</div>
       <span class="header-sep">/</span>
       <span class="header-subtitle">Global Operations Center</span>
       <div class="header-live" aria-label="Data feed status">
@@ -104,46 +85,7 @@
     </header>
 
     <!-- FILTER BAR -->
-    <div class="filter-bar" role="search" aria-label="Filter disruption events">
-      <span class="filter-label" aria-hidden="true">Filter</span>
-      <div class="filter-divider" aria-hidden="true"></div>
-      <select class="filter-select" id="filter-airline" aria-label="Filter by airline">
-        <option value="">All Airlines</option>
-      </select>
-      <select class="filter-select" id="filter-region" aria-label="Filter by region">
-        <option value="">All Regions</option>
-      </select>
-      <select class="filter-select" id="filter-country" aria-label="Filter by country">
-        <option value="">All Countries</option>
-      </select>
-      <select class="filter-select" id="filter-impact" aria-label="Filter by impact type">
-        <option value="">All Impact Types</option>
-        <option value="cancellations">Cancellations</option>
-        <option value="fare_increase">Fare Increase</option>
-        <option value="schedule_cuts">Schedule Cuts</option>
-        <option value="fuel_risk">Fuel Risk</option>
-      </select>
-      <select class="filter-select" id="filter-severity" aria-label="Filter by severity">
-        <option value="">All Severities</option>
-        <option value="critical">Critical</option>
-        <option value="high">High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
-      </select>
-      <input
-        type="search"
-        class="filter-search"
-        id="filter-search"
-        placeholder="Search routes, airports…"
-        aria-label="Search by route or airport"
-        autocomplete="off"
-      />
-      <button class="filter-clear" id="filter-clear" type="button" aria-label="Clear all filters">Clear</button>
-      <div class="filter-divider" aria-hidden="true"></div>
-      <button class="summer-toggle" id="summer-toggle" type="button" aria-pressed="false" aria-label="Toggle summer peak demand mode">
-        <span aria-hidden="true">&#9728;&#65039;</span> Summer Mode
-      </button>
-    </div>
+    <div class="filter-bar" id="filter-bar" role="search" aria-label="Filters"></div>
 
     <!-- MAIN CONTENT -->
     <main class="main-content" id="main-content" role="main">
@@ -408,7 +350,8 @@
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
 
-<!-- Application script — extracted to app.js for clarity -->
+<script src="/shared.js"></script>
+<script src="/energy.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
