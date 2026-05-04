@@ -1,0 +1,11 @@
+{
+  "name": "jet-fuel-shortage-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "live-server public --port=5500 --no-browser"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}

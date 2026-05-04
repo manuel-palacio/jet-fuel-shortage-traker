@@ -160,9 +160,21 @@ npx serve public
 # Or use the built-in HTTP server (port shown in toolbar)
 ```
 
-Fuel prices and disruption news will be empty (seed data). Airport data loads from `public/data/airports.json`.
+Fuel prices and disruption news will be empty (seed data). Airport data loads from `public/data/energy/airports.json`.
 
-### Option 2: Docker with live EIA data
+### Option 2: npm run dev (auto-reload)
+
+Same as Option 1 but with **auto-reload on file change** via `live-server`. Convenient for active UI work.
+
+```bash
+npm install   # one-time, installs live-server as a devDependency
+npm run dev
+# open http://localhost:5500
+```
+
+Edits to any file under `public/` (HTML, CSS, JS, JSON) trigger a browser refresh. No live API data — same seed JSON as Option 1.
+
+### Option 3: Docker with live EIA data
 
 Runs the full server-side pipeline — fetches live fuel prices and news at container start.
 
