@@ -22,4 +22,12 @@ jobs:
       - name: Restart app machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl machines list --app efc-tracker --json | jq -r '.[].id' | xargs -I{} flyctl machines restart {} --app efc-tracker
+        # set -o pipefail so an unauthorized/missing-app flyctl error fails
+        # the run instead of being swallowed by the trailing xargs (which
+        # exits 0 when given no input). Otherwise the cron silently "succeeds"
+        # while accomplishing nothing — that bit us during the app rename.
+        run: |
+          set -o pipefail
+          flyctl machines list --app efc-tracker --json \
+            | jq -r '.[].id' \
+            | xargs -I{} flyctl machines restart {} --app efc-tracker
