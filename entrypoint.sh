@@ -58,17 +58,17 @@ fetch_oil_prices() {
     return 1
   fi
 
-  echo "Fetching EIA WTI crude oil prices (EPCWTI/RWTC)..."
+  echo "Fetching EIA WTI crude oil prices (EPCWTI/YCUOK)..."
   local tmp=$(mktemp)
 
   HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
-    "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[product][]=EPCWTI&facets[duoarea][]=RWTC&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
+    "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[product][]=EPCWTI&facets[duoarea][]=YCUOK&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
 
   if [ "$HTTP_STATUS" = "200" ]; then
     jq '[.response.data[]
          | select(.value != null)
          | { date: .period, price: (.value | tonumber),
-             source: "EIA EPCWTI/RWTC (live)", series_id: "EPCWTI_RWTC" }]
+             source: "EIA EPCWTI/YCUOK (live)", series_id: "RWTC" }]
        | sort_by(.date)' \
       "$tmp" > "$DATA_DIR/energy/oil-prices.json"
 
@@ -88,11 +88,11 @@ fetch_gas_prices() {
     return 1
   fi
 
-  echo "Fetching EIA Henry Hub natural gas prices..."
+  echo "Fetching EIA Henry Hub natural gas prices (RNGWHHD)..."
   local tmp=$(mktemp)
 
   HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
-    "https://api.eia.gov/v2/natural-gas/pri/sum/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[duoarea][]=RGC&facets[process][]=PG1&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
+    "https://api.eia.gov/v2/natural-gas/pri/fut/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[series][]=RNGWHHD&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
 
   if [ "$HTTP_STATUS" = "200" ]; then
     jq '[.response.data[]
