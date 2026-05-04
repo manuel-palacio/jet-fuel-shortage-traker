@@ -1,10 +1,10 @@
-name: Refresh fuel price data
+name: Refresh EFC Tracker data
 
 # Restarts the Fly.io machines daily so entrypoint.sh re-fetches live EIA data.
 # No redeploy needed — just a container restart, takes ~10 seconds.
 #
 # Required secret: FLY_API_TOKEN
-#   1. fly tokens create deploy -x 999999h
+#   1. fly tokens create deploy -x 999999h --app efc-tracker
 #   2. Add as a GitHub repo secret named FLY_API_TOKEN
 
 on:
@@ -22,4 +22,4 @@ jobs:
       - name: Restart app machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl machines list --app fuelwatch-dashboard --json | jq -r '.[].id' | xargs -I{} flyctl machines restart {} --app fuelwatch-dashboard
+        run: flyctl machines list --app efc-tracker --json | jq -r '.[].id' | xargs -I{} flyctl machines restart {} --app efc-tracker

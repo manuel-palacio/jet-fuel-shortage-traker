@@ -1,31 +1,32 @@
-# FuelWatch — Aviation Kerosene Disruption Tracker
+# EFC Tracker — Energy & Food Crisis Tracker
 
-A single-page dashboard for monitoring jet fuel shortages across European airports, airline disruptions, and live kerosene pricing from EIA.
+A single-page dashboard for monitoring jet fuel shortages across European airports, airline disruptions, and live kerosene pricing from EIA. Food-mode tracking (wheat prices, food crisis events) is in active development on the `efc-tracker` branch — see `docs/superpowers/specs/2026-05-03-efc-tracker-design.md`.
 
-Live: **https://fuelwatch-dashboard.fly.dev**
+Live: **https://efc-tracker.fly.dev**
 
 ---
 
 ## Project Structure
 
 ```
-jet-fuel-shortage-tracker/
+efc-tracker/
 ├── public/
 │   ├── index.html          ← SPA shell (HTML + CSS)
 │   ├── app.js              ← Application logic (routing, rendering, data)
 │   ├── favicon.svg         ← Amber flame icon
 │   └── data/
-│       ├── airports.json   ← 15 European airport fuel stockpile data
-│       ├── disruptions.json← Disruption events (seed data)
-│       └── fuel-prices.json← EIA fuel price history (seed / live)
+│       └── energy/
+│           ├── airports.json   ← 15 European airport fuel stockpile data
+│           ├── disruptions.json← Disruption events (seed data)
+│           └── fuel-prices.json← EIA fuel price history (seed / live)
 ├── .github/
 │   └── workflows/
 │       └── refresh-data.yml← Daily cron: restarts Fly machine to refresh EIA data
 ├── Dockerfile              ← nginx:alpine image with curl + jq for server-side EIA fetch
 ├── entrypoint.sh           ← Runs at container start; fetches EIA, writes fuel-prices.json
-├── fly.toml                ← Fly.io deployment config (app: fuelwatch-dashboard, region: iad)
+├── fly.toml                ← Fly.io deployment config (app: efc-tracker, region: arn)
 └── docs/
-    └── superpowers/specs/  ← Design specifications
+    └── superpowers/        ← Design specifications and implementation plans
 ```
 
 ---
@@ -179,8 +180,8 @@ Edits to any file under `public/` (HTML, CSS, JS, JSON) trigger a browser refres
 Runs the full server-side pipeline — fetches live fuel prices and news at container start.
 
 ```bash
-docker build -t fuelwatch .
-docker run -p 8080:80 -e EIA_API_KEY=your_key_here fuelwatch
+docker build -t efc-tracker .
+docker run -p 8080:80 -e EIA_API_KEY=your_key_here efc-tracker
 # open http://localhost:8080
 ```
 
@@ -198,7 +199,7 @@ Get a free EIA API key at https://www.eia.gov/opendata/
 
 ```bash
 # Set EIA key (one-time):
-fly secrets set EIA_API_KEY=your_key_here --app fuelwatch-dashboard
+fly secrets set EIA_API_KEY=your_key_here --app efc-tracker
 
 # Deploy:
 fly deploy
@@ -210,7 +211,7 @@ fly open
 ### Verify
 
 ```bash
-fly logs --app fuelwatch-dashboard
+fly logs --app efc-tracker
 # Should show: fuel-prices.json written: N records, latest: YYYY-MM-DD $X.XXX/gal
 ```
 
@@ -224,7 +225,7 @@ EIA data is fetched at container start and every 6 hours via background loop. Th
 
 1. Create a Fly.io deploy token:
    ```bash
-   fly tokens create deploy -x 999999h --app fuelwatch-dashboard
+   fly tokens create deploy -x 999999h --app efc-tracker
    ```
 2. Add as GitHub secret: **Settings → Secrets → Actions** → `FLY_API_TOKEN`
 

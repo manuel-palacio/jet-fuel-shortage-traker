@@ -1,9 +1,9 @@
-# fly.toml — FuelWatch Fly.io configuration
+# fly.toml — EFC Tracker Fly.io configuration
 # Change `app` to your chosen Fly app name before deploying.
 # Run: fly launch --no-deploy   (first time)
 #      fly deploy               (every deploy)
 
-app = "fuelwatch-dashboard"
+app = "efc-tracker"
 primary_region = "arn"
 
 [build]
