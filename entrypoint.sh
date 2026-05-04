@@ -6,10 +6,11 @@
 # The EIA_API_KEY never reaches the browser.
 #
 # Data refreshes on every container restart. To refresh without redeploying:
-#   fly machines restart --app fuelwatch-dashboard
+#   fly machines restart --app efc-tracker
 #
-# Secrets:
-#   fly secrets set EIA_API_KEY=your_key_here
+# Secrets (set on Fly app before first deploy):
+#   fly secrets set EIA_API_KEY=your_key_here  --app efc-tracker
+#   fly secrets set FRED_API_KEY=your_key_here --app efc-tracker
 
 DATA_DIR=/usr/share/nginx/html/data
 mkdir -p "$DATA_DIR/energy" "$DATA_DIR/food"
@@ -115,7 +116,7 @@ fetch_disruption_news() {
   echo "Fetching aviation fuel disruption news from Google News RSS..."
   local tmp=$(mktemp)
   local query="jet+fuel+shortage+OR+kerosene+supply+disruption+OR+airline+fuel+crisis+OR+aviation+fuel+supply"
-  local ua="Mozilla/5.0 (compatible; FuelWatch/1.0; +https://fuelwatch-dashboard.fly.dev)"
+  local ua="Mozilla/5.0 (compatible; EFCTracker/1.0; +https://efc-tracker.fly.dev)"
 
   if ! curl -sLf -A "$ua" \
     "https://news.google.com/rss/search?q=${query}&hl=en&gl=US&ceid=US:en" \
@@ -386,7 +387,7 @@ fetch_food_events
 cat > /usr/share/nginx/html/config.js <<'EOF'
 // Auto-generated at container start — do not edit or commit.
 // API keys are handled server-side in entrypoint.sh.
-window.FUELWATCH_CONFIG = {};
+window.EFC_CONFIG = {};
 EOF
 
 echo "config.js written"

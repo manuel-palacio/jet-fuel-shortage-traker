@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Real-time aviation fuel shortage tracker — airline disruptions, kerosene prices, and route impacts." />
-  <title>Aviation Disruption Tracker</title>
+  <meta name="description" content="EFC Tracker — Energy & Food Crisis Tracker. Real-time intelligence on jet fuel, oil, gas, wheat prices, and supply disruptions." />
+  <title>EFC Tracker — Energy & Food Crisis</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Fonts: Space Grotesk (display/headlines), Inter (UI/body), JetBrains Mono (data) -->
@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- Runtime config — written by entrypoint.sh from Fly.io secrets.
        Falls back gracefully if the file is absent (local dev). -->
-  <script>window.FUELWATCH_CONFIG = window.FUELWATCH_CONFIG || {};</script>
+  <script>window.EFC_CONFIG = window.EFC_CONFIG || {};</script>
   <script src="/config.js" onerror="console.info('config.js not found — using seed data')"></script>
 
   <link rel="stylesheet" href="/styles.css" />
@@ -36,7 +36,7 @@
 
   <!-- ============================================================ SIDEBAR NAV -->
   <aside class="side-nav" id="side-nav" aria-label="Main navigation">
-    <div class="nav-brand">Aviation Disruption Tracker</div>
+    <div class="nav-brand">EFC Tracker</div>
     <nav class="nav-items" id="nav-items" role="navigation"></nav>
     <button class="nav-collapse-btn" id="nav-collapse" aria-label="Collapse sidebar">
       <span class="material-symbols-outlined">chevron_left</span>
@@ -66,17 +66,11 @@
       <button class="info-btn" id="info-btn" aria-label="About this dashboard" title="About">
         <span class="material-symbols-outlined">info</span>
         <div class="info-popover" id="info-popover" role="tooltip">
-          <div class="info-popover-title">FuelWatch Dashboard</div>
-          <p>Real-time intelligence on jet fuel shortages affecting European aviation.</p>
-          <ul>
-            <li><strong>Overview</strong> — KPIs, fuel prices, and disruption events</li>
-            <li><strong>Airports</strong> — Modelled fuel supply estimates for 16 European airports</li>
-            <li><strong>Map</strong> — Geographic risk view with color-coded bubbles</li>
-            <li><strong>Disruptions</strong> — Full event log across all airlines</li>
-            <li><strong>Analytics</strong> — Price trends, regional breakdown, seasonal demand</li>
-          </ul>
-          <p>Toggle <strong>Summer Mode</strong> to apply a +35% peak-season demand multiplier to cover-day estimates.</p>
-          <div class="info-popover-footer">Fuel prices: EIA EPJK/RGC (US Gulf Coast Kerosene) · Refreshed every 6h</div>
+          <div class="info-popover-title">EFC Tracker</div>
+          <p>Energy &amp; Food Crisis Tracker. Real-time intelligence on commodity prices and supply disruptions across two domains.</p>
+          <p><strong>⚡ Energy mode:</strong> jet fuel (EIA EPJK), WTI crude (EIA EPCWTI), Henry Hub natural gas, plus airline disruption news.</p>
+          <p><strong>🌾 Food mode:</strong> global wheat prices (FRED PWHEAMTUSDM, monthly) and food crisis news (Google News RSS).</p>
+          <div class="info-popover-footer">Switch modes via the tabs above the header. All data refreshed every 6h server-side.</div>
         </div>
       </button>
       <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle theme">
@@ -123,8 +117,8 @@
           <!-- Page header -->
           <div class="page-header">
             <div>
-              <h2 class="page-title">Disruption Events</h2>
-              <p class="page-subtitle">Jet Fuel Shortage Tracker · Real-time Intelligence</p>
+              <h2 class="page-title">Energy Overview</h2>
+              <p class="page-subtitle">Jet fuel, oil, gas · Real-time intelligence</p>
             </div>
             <div class="page-status-badge">
               <span class="live-dot" aria-hidden="true"></span>
@@ -408,12 +402,12 @@
     <!-- FOOTER -->
     <footer class="site-footer" role="contentinfo">
       <p class="footer-text">
-        © 2025 Aviation Disruption Tracker · Global Ops v1.0 · Fuel prices reference EIA WJFUELUSGULF
+        © 2026 EFC Tracker · Energy &amp; Food Crisis · Open data from EIA, FRED, World Bank
       </p>
       <div class="footer-sources">
-        <a href="https://www.eia.gov/petroleum/gasdiesel/" target="_blank" rel="noopener noreferrer" class="footer-source-link">EIA Petroleum</a>
-        <a href="https://fred.stlouisfed.org/series/WJFUELUSGULF" target="_blank" rel="noopener noreferrer" class="footer-source-link">FRED WJFUELUSGULF</a>
-        <a href="https://www.iata.org/en/publications/economics/fuel-monitor/" target="_blank" rel="noopener noreferrer" class="footer-source-link">IATA Fuel Monitor</a>
+        <a href="https://www.eia.gov/opendata/" target="_blank" rel="noopener noreferrer" class="footer-source-link">EIA Open Data</a>
+        <a href="https://fred.stlouisfed.org/" target="_blank" rel="noopener noreferrer" class="footer-source-link">FRED</a>
+        <a href="https://www.worldbank.org/en/research/commodity-markets" target="_blank" rel="noopener noreferrer" class="footer-source-link">World Bank Commodities</a>
       </div>
     </footer>
 
