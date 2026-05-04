@@ -903,3 +903,48 @@
     }
     .data-source-badge.live{background:var(--c-low-dim);color:var(--c-low);}
     .data-source-badge.seed{background:var(--c-high-dim);color:var(--c-high);}
+
+    /* ======================================================
+       MODE TABS — top-level Energy / Food selector
+       ====================================================== */
+    .mode-tabs {
+      display:flex;
+      gap:var(--space-2);
+      padding:var(--space-3) var(--space-6);
+      background:var(--surface-container-low);
+      border-bottom:1px solid var(--outline-variant);
+    }
+    .mode-tab {
+      display:inline-flex;align-items:center;gap:var(--space-2);
+      padding:var(--space-2) var(--space-4);
+      font-family:var(--font-display);font-weight:600;font-size:13px;
+      color:var(--text-secondary);
+      background:transparent;
+      border:1px solid var(--outline-variant);
+      border-radius:var(--radius);
+      cursor:pointer;
+      transition:background var(--transition),color var(--transition),border-color var(--transition);
+    }
+    .mode-tab:hover {
+      color:var(--text-primary);
+      border-color:var(--tertiary);
+      background:var(--surface-container);
+    }
+    .mode-tab.active {
+      color:var(--text-primary);
+      background:var(--surface-container-high);
+      border-color:var(--tertiary);
+      box-shadow:0 0 0 1px var(--tertiary) inset;
+    }
+    .mode-tab[data-mode="food"]:hover {
+      border-color:var(--c-low);
+    }
+    .mode-tab[data-mode="food"].active {
+      border-color:var(--c-low);
+      box-shadow:0 0 0 1px var(--c-low) inset;
+    }
+    .mode-tab .material-symbols-outlined { font-size:18px; }
+    @media (max-width:720px) {
+      .mode-tabs { padding:var(--space-2) var(--space-4); }
+      .mode-tab { padding:var(--space-2) var(--space-3); font-size:12px; }
+    }
