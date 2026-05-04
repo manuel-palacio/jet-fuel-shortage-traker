@@ -83,6 +83,8 @@
   const EnergyState = {
     disruptions: [],
     fuelPrices:  [],
+    oilPrices:   [],
+    gasPrices:   [],
     airports:    [],
     filters: { airline: '', region: '', country: '', impactType: '', severity: '', search: '' },
     sort:    { col: 'updated_at', dir: 'desc' },
@@ -608,6 +610,69 @@
     renderAnalyticsFuelChart();
     renderRegionalChart();
     renderSeasonalityChart();
+    renderOilChart();
+    renderGasChart();
+  }
+
+  let oilInst, gasInst;
+  function renderOilChart() {
+    const data = EnergyState.oilPrices;
+    if (!data || !data.length) return;
+    const ctx = document.getElementById('oil-chart')?.getContext('2d');
+    if (!ctx) return;
+    if (oilInst) oilInst.destroy();
+    const colors = cc();
+    oilInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map(d => d.date),
+        datasets: [{
+          label: 'WTI ($/bbl)',
+          data: data.map(d => d.price),
+          borderColor: colors.high,
+          backgroundColor: hexAlpha(colors.high, 0.12),
+          tension: 0.25, pointRadius: 0, fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: colors.grid }, ticks: { color: colors.txt, maxTicksLimit: 6 } },
+          y: { grid: { color: colors.grid }, ticks: { color: colors.txt, callback: v => '$' + v } },
+        },
+      },
+    });
+  }
+
+  function renderGasChart() {
+    const data = EnergyState.gasPrices;
+    if (!data || !data.length) return;
+    const ctx = document.getElementById('gas-chart')?.getContext('2d');
+    if (!ctx) return;
+    if (gasInst) gasInst.destroy();
+    const colors = cc();
+    gasInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map(d => d.date),
+        datasets: [{
+          label: 'Henry Hub ($/MMBtu)',
+          data: data.map(d => d.price),
+          borderColor: colors.info,
+          backgroundColor: hexAlpha(colors.info, 0.12),
+          tension: 0.25, pointRadius: 0, fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: colors.grid }, ticks: { color: colors.txt, maxTicksLimit: 6 } },
+          y: { grid: { color: colors.grid }, ticks: { color: colors.txt, callback: v => '$' + v } },
+        },
+      },
+    });
   }
 
   function renderAnalyticsFuelChart() {
@@ -1027,14 +1092,18 @@
     showLoading();
 
     try {
-      const [disruptions, fuelPrices, airports] = await Promise.all([
+      const [disruptions, fuelPrices, airports, oilPrices, gasPrices] = await Promise.all([
         fetchDisruptionEvents(),
         fetchFuelPrices(),
         fetchAirports(),
+        EFC.fetchJSON('/data/energy/oil-prices.json', []),
+        EFC.fetchJSON('/data/energy/gas-prices.json', []),
       ]);
       EnergyState.disruptions = disruptions;
       EnergyState.fuelPrices  = fuelPrices;
       EnergyState.airports    = airports;
+      EnergyState.oilPrices   = oilPrices;
+      EnergyState.gasPrices   = gasPrices;
 
       populateFilterOptions();
       initSummerToggle();

@@ -1,0 +1,10 @@
+[
+  { "date": "2026-01-03", "price": 72.41, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-01-10", "price": 73.85, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-01-17", "price": 71.20, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-01-24", "price": 74.55, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-01-31", "price": 76.10, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-02-07", "price": 75.92, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-02-14", "price": 77.30, "source": "Seed", "series_id": "EPCWTI_RWTC" },
+  { "date": "2026-02-21", "price": 78.45, "source": "Seed", "series_id": "EPCWTI_RWTC" }
+]

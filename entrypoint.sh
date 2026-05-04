@@ -50,6 +50,66 @@ fetch_fuel_prices() {
   rm -f "$tmp"
 }
 
+# ── Crude oil price fetch (EIA WTI Cushing daily spot) ──────────────────────
+fetch_oil_prices() {
+  if [ -z "$EIA_API_KEY" ]; then
+    echo "EIA_API_KEY not set — skipping oil prices"
+    return 1
+  fi
+
+  echo "Fetching EIA WTI crude oil prices (EPCWTI/RWTC)..."
+  local tmp=$(mktemp)
+
+  HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
+    "https://api.eia.gov/v2/petroleum/pri/spt/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[product][]=EPCWTI&facets[duoarea][]=RWTC&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
+
+  if [ "$HTTP_STATUS" = "200" ]; then
+    jq '[.response.data[]
+         | select(.value != null)
+         | { date: .period, price: (.value | tonumber),
+             source: "EIA EPCWTI/RWTC (live)", series_id: "EPCWTI_RWTC" }]
+       | sort_by(.date)' \
+      "$tmp" > "$DATA_DIR/energy/oil-prices.json"
+
+    RECORD_COUNT=$(jq 'length' "$DATA_DIR/energy/oil-prices.json")
+    LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/bbl"' "$DATA_DIR/energy/oil-prices.json")
+    echo "oil-prices.json written: ${RECORD_COUNT} records, latest: ${LATEST}"
+  else
+    echo "EIA WTI fetch failed (HTTP ${HTTP_STATUS}) — keeping existing data"
+  fi
+  rm -f "$tmp"
+}
+
+# ── Natural gas price fetch (EIA Henry Hub daily spot) ──────────────────────
+fetch_gas_prices() {
+  if [ -z "$EIA_API_KEY" ]; then
+    echo "EIA_API_KEY not set — skipping gas prices"
+    return 1
+  fi
+
+  echo "Fetching EIA Henry Hub natural gas prices..."
+  local tmp=$(mktemp)
+
+  HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
+    "https://api.eia.gov/v2/natural-gas/pri/sum/data/?api_key=${EIA_API_KEY}&frequency=daily&data[0]=value&facets[duoarea][]=RGC&facets[process][]=PG1&start=2023-01-01&sort[0][column]=period&sort[0][direction]=desc&length=400")
+
+  if [ "$HTTP_STATUS" = "200" ]; then
+    jq '[.response.data[]
+         | select(.value != null)
+         | { date: .period, price: (.value | tonumber),
+             source: "EIA Henry Hub (live)", series_id: "RNGWHHD" }]
+       | sort_by(.date)' \
+      "$tmp" > "$DATA_DIR/energy/gas-prices.json"
+
+    RECORD_COUNT=$(jq 'length' "$DATA_DIR/energy/gas-prices.json")
+    LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/MMBtu"' "$DATA_DIR/energy/gas-prices.json")
+    echo "gas-prices.json written: ${RECORD_COUNT} records, latest: ${LATEST}"
+  else
+    echo "EIA Henry Hub fetch failed (HTTP ${HTTP_STATUS}) — keeping existing data"
+  fi
+  rm -f "$tmp"
+}
+
 # ── Disruption news fetch function ────────────────────────────────────────────
 fetch_disruption_news() {
   echo "Fetching aviation fuel disruption news from Google News RSS..."
@@ -186,10 +246,12 @@ fetch_disruption_news() {
 
 # ── Initial fetch ────────────────────────────────────────────────────────────
 fetch_fuel_prices
+fetch_oil_prices
+fetch_gas_prices
 fetch_disruption_news
 
 # ── Background refresh every 6 hours ─────────────────────────────────────────
-(while true; do sleep 21600; fetch_fuel_prices; fetch_disruption_news; done) &
+(while true; do sleep 21600; fetch_fuel_prices; fetch_oil_prices; fetch_gas_prices; fetch_disruption_news; done) &
 
 # ── config.js (no API keys needed client-side) ────────────────────────────────
 cat > /usr/share/nginx/html/config.js <<'EOF'

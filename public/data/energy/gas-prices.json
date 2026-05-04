@@ -1,0 +1,10 @@
+[
+  { "date": "2026-01-03", "price": 3.21, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-01-10", "price": 3.45, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-01-17", "price": 4.12, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-01-24", "price": 3.88, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-01-31", "price": 3.55, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-02-07", "price": 3.40, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-02-14", "price": 3.62, "source": "Seed", "series_id": "RNGWHHD" },
+  { "date": "2026-02-21", "price": 3.71, "source": "Seed", "series_id": "RNGWHHD" }
+]
