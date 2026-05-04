@@ -1,0 +1,62 @@
+[
+  {
+    "id": "FOOD-IndiaWheatExportBan",
+    "commodity": "wheat",
+    "region": "Asia-Pacific",
+    "country": "India",
+    "event_type": "export_ban",
+    "severity": "high",
+    "summary": "India bans wheat exports amid record heatwave damage to harvest",
+    "source_name": "Reuters",
+    "source_url": "https://www.reuters.com/",
+    "updated_at": "2026-04-12T14:23:00Z"
+  },
+  {
+    "id": "FOOD-UkraineCorridor",
+    "commodity": "wheat",
+    "region": "Europe",
+    "country": "Ukraine",
+    "event_type": "supply_disruption",
+    "severity": "critical",
+    "summary": "Black Sea grain corridor disruptions tighten global wheat supply",
+    "source_name": "Bloomberg",
+    "source_url": "https://www.bloomberg.com/",
+    "updated_at": "2026-04-08T09:10:00Z"
+  },
+  {
+    "id": "FOOD-ArgentinaDrought",
+    "commodity": "wheat",
+    "region": "Latin America",
+    "country": "Argentina",
+    "event_type": "harvest_failure",
+    "severity": "high",
+    "summary": "Argentina's wheat harvest forecast slashed 30% on persistent drought",
+    "source_name": "Financial Times",
+    "source_url": "https://www.ft.com/",
+    "updated_at": "2026-03-30T17:45:00Z"
+  },
+  {
+    "id": "FOOD-EgyptStockpile",
+    "commodity": "wheat",
+    "region": "Africa",
+    "country": "Egypt",
+    "event_type": "policy",
+    "severity": "medium",
+    "summary": "Egypt expands strategic wheat stockpile target to nine months of supply",
+    "source_name": "Al Jazeera",
+    "source_url": "https://www.aljazeera.com/",
+    "updated_at": "2026-03-22T11:00:00Z"
+  },
+  {
+    "id": "FOOD-EUFertilizer",
+    "commodity": "fertilizer",
+    "region": "Europe",
+    "country": "EU-wide",
+    "event_type": "price_surge",
+    "severity": "medium",
+    "summary": "European urea prices climb on Russian export curbs and high gas prices",
+    "source_name": "Reuters",
+    "source_url": "https://www.reuters.com/",
+    "updated_at": "2026-03-15T08:30:00Z"
+  }
+]

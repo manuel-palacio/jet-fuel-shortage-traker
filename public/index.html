@@ -312,6 +312,72 @@
           </div>
         </section>
 
+        <!-- ====================== FOOD: OVERVIEW ====================== -->
+        <section data-view="food-overview" class="view-section hidden">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Food Overview</h2>
+              <p class="page-subtitle">Wheat Prices &amp; Food Crisis News</p>
+            </div>
+          </div>
+          <section aria-label="Food KPIs">
+            <div class="kpi-grid" id="food-kpi-grid"></div>
+          </section>
+          <section class="charts-section">
+            <div class="chart-card">
+              <div class="chart-header">
+                <div>
+                  <div class="chart-title">Global Wheat Price</div>
+                  <div class="chart-subtitle">FRED PWHEAMTUSDM · monthly · $/metric ton (data lags ~6 weeks)</div>
+                </div>
+              </div>
+              <div class="chart-canvas-wrap" style="height:240px;">
+                <canvas id="wheat-chart" aria-label="Wheat price chart" role="img"></canvas>
+              </div>
+            </div>
+          </section>
+          <section class="table-section">
+            <div class="table-toolbar">
+              <span class="table-title">Recent Food Events</span>
+            </div>
+            <div id="food-recent-events"></div>
+          </section>
+        </section>
+
+        <!-- ====================== FOOD: EVENTS ====================== -->
+        <section data-view="food-events" class="view-section hidden">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Food Events</h2>
+              <p class="page-subtitle">Live news via Google News RSS · Refreshed every 6h</p>
+            </div>
+          </div>
+          <section class="table-section">
+            <div class="table-toolbar">
+              <div class="table-toolbar-left">
+                <span class="table-title">Food Events</span>
+                <span class="table-count" id="food-events-count">0 events</span>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="food-events-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Commodity</th>
+                    <th scope="col">Country</th>
+                    <th scope="col">Region</th>
+                    <th scope="col">Event Type</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Summary</th>
+                    <th scope="col">Source</th>
+                  </tr>
+                </thead>
+                <tbody id="food-events-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
       </div><!-- /dashboard -->
     </main>
 
@@ -352,6 +418,7 @@
 
 <script src="/shared.js"></script>
 <script src="/energy.js"></script>
+<script src="/food.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

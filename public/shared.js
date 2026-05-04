@@ -63,12 +63,24 @@ window.EFC = (function () {
 
   function currentMode() { return _modes[_currentModeId]; }
 
+  // setMode changes mode state + chrome only. It does NOT navigate. The URL
+  // hash is the single source of truth for which view renders; callers that
+  // want to navigate (mode-tab clicks, view-link clicks) call routeTo, and the
+  // ensuing hashchange triggers the actual view render via _onHashChange.
   function setMode(id) {
     const mode = _modes[id];
-    if (!mode) return;
-    const prevId = _currentModeId;
+    if (!mode || id === _currentModeId) return;
     _currentModeId = id;
     try { localStorage.setItem('efc.mode', id); } catch (e) {}
+
+    // Shell-level: make the dashboard container visible. Modes can still
+    // call their own showLoading()/showError() during data fetch if they want.
+    const dash = $('#dashboard');
+    const loading = $('#loading-state');
+    const err = $('#error-state');
+    if (dash) dash.classList.remove('hidden');
+    if (loading) loading.classList.add('hidden');
+    if (err) err.classList.add('hidden');
 
     _renderModeTabs();
     _renderSidebar();
@@ -77,10 +89,6 @@ window.EFC = (function () {
     if (!mode._initialized) {
       if (typeof mode.init === 'function') mode.init();
       mode._initialized = true;
-    }
-
-    if (prevId !== id) {
-      routeTo(id, mode.defaultView);
     }
   }
 
@@ -114,7 +122,10 @@ window.EFC = (function () {
     }
     if (modeId !== _currentModeId) {
       setMode(modeId);
-      return; // setMode -> routeTo -> hashchange re-fires
+      // Don't return — setMode's routeTo only re-fires hashchange when the
+      // hash actually changes. If the user already deep-linked to the target
+      // hash, no event fires, and the view never renders. Fall through to
+      // render the view ourselves.
     }
 
     const mode = _modes[modeId];
@@ -142,7 +153,11 @@ window.EFC = (function () {
     });
     safeHTML(host, html);
     $$('button[data-mode]', host).forEach(function (btn) {
-      btn.addEventListener('click', function () { setMode(btn.dataset.mode); });
+      btn.addEventListener('click', function () {
+        const id = btn.dataset.mode;
+        if (id === _currentModeId || !_modes[id]) return;
+        routeTo(id, _modes[id].defaultView);
+      });
     });
   }
 
@@ -289,10 +304,29 @@ window.EFC = (function () {
     initSidebar();
     initInfoPopover();
     window.addEventListener('hashchange', _onHashChange);
+
+    // Initial mode priority: URL hash > localStorage > first registered mode.
     let initial = null;
-    try { initial = localStorage.getItem('efc.mode'); } catch (e) {}
-    setMode(initial && _modes[initial] ? initial : Object.keys(_modes)[0]);
-    if (location.hash) _onHashChange();
+    const fromHash = parseHash().modeId;
+    if (fromHash && _modes[fromHash]) {
+      initial = fromHash;
+    } else if (LEGACY_VIEWS.indexOf(fromHash) !== -1) {
+      initial = 'energy';
+    }
+    if (!initial) {
+      try { initial = localStorage.getItem('efc.mode'); } catch (e) {}
+    }
+    initial = initial && _modes[initial] ? initial : Object.keys(_modes)[0];
+    setMode(initial);
+
+    // The hash is the source of truth for which view renders. If it's set,
+    // _onHashChange handles it. Otherwise, navigate to the initial mode's
+    // default view, which will then fire hashchange.
+    if (location.hash) {
+      _onHashChange();
+    } else {
+      routeTo(initial, _modes[initial].defaultView);
+    }
   }
 
   return {

@@ -1,0 +1,10 @@
+[
+  { "date": "2025-08-01", "price": 245.30, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2025-09-01", "price": 252.80, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2025-10-01", "price": 261.40, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2025-11-01", "price": 258.10, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2025-12-01", "price": 265.95, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2026-01-01", "price": 271.20, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2026-02-01", "price": 278.55, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" },
+  { "date": "2026-03-01", "price": 285.10, "source": "Seed (FRED PWHEAMTUSDM)", "series_id": "PWHEAMTUSDM" }
+]

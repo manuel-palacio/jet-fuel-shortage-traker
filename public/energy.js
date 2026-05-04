@@ -1052,6 +1052,16 @@
   }
 
   /* ================================================================
+     VIEW SWITCHING — show only the matching .view-section
+     ================================================================ */
+
+  function showSection(viewId) {
+    document.querySelectorAll('.view-section').forEach(function (s) {
+      s.classList.toggle('hidden', s.dataset.view !== viewId);
+    });
+  }
+
+  /* ================================================================
      REGISTER MODE
      ================================================================ */
 
@@ -1061,11 +1071,26 @@
     icon: 'local_gas_station',
     defaultView: 'overview',
     views: [
-      { id: 'overview',    label: 'Fleet Overview',    icon: 'dashboard',      render: function () { /* view sections toggled by shared routing */ } },
-      { id: 'airports',    label: 'Airport Inventory', icon: 'local_airport',  render: function () {} },
-      { id: 'map',         label: 'Europe Risk Map',   icon: 'map',            render: function () { setTimeout(function () { renderMapView(); if (mapInstance) mapInstance.invalidateSize(); }, 50); } },
-      { id: 'disruptions', label: 'Disruptions',       icon: 'warning',        render: function () {} },
-      { id: 'analytics',   label: 'Analytics',         icon: 'trending_up',    render: function () { setTimeout(renderAnalyticsCharts, 50); } },
+      { id: 'overview', label: 'Fleet Overview', icon: 'dashboard', render: function () {
+          showSection('overview');
+          applyAndRender();
+      } },
+      { id: 'airports', label: 'Airport Inventory', icon: 'local_airport', render: function () {
+          showSection('airports');
+          renderAirportCards();
+      } },
+      { id: 'map', label: 'Europe Risk Map', icon: 'map', render: function () {
+          showSection('map');
+          setTimeout(function () { renderMapView(); if (mapInstance) mapInstance.invalidateSize(); }, 50);
+      } },
+      { id: 'disruptions', label: 'Disruptions', icon: 'warning', render: function () {
+          showSection('disruptions');
+          applyAndRender();
+      } },
+      { id: 'analytics', label: 'Analytics', icon: 'trending_up', render: function () {
+          showSection('analytics');
+          setTimeout(renderAnalyticsCharts, 50);
+      } },
     ],
     filters: {
       html: filtersHTML,
