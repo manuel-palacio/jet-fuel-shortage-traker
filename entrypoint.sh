@@ -244,14 +244,143 @@ fetch_disruption_news() {
   rm -f "$tmp" /tmp/news_disruptions.json
 }
 
+# ── Wheat price fetch (FRED PWHEAMTUSDM, monthly $/MT) ──────────────────────
+fetch_wheat_prices() {
+  if [ -z "$FRED_API_KEY" ]; then
+    echo "FRED_API_KEY not set — skipping wheat prices"
+    return 1
+  fi
+
+  echo "Fetching FRED wheat prices (PWHEAMTUSDM)..."
+  local tmp=$(mktemp)
+
+  HTTP_STATUS=$(curl -gs -o "$tmp" -w "%{http_code}" \
+    "https://api.stlouisfed.org/fred/series/observations?series_id=PWHEAMTUSDM&api_key=${FRED_API_KEY}&file_type=json&observation_start=2023-01-01")
+
+  if [ "$HTTP_STATUS" = "200" ]; then
+    jq '[.observations[]
+         | select(.value != "." and .value != null)
+         | { date: .date, price: (.value | tonumber),
+             source: "FRED PWHEAMTUSDM (live)", series_id: "PWHEAMTUSDM" }]
+       | sort_by(.date)' \
+      "$tmp" > "$DATA_DIR/food/wheat-prices.json"
+
+    RECORD_COUNT=$(jq 'length' "$DATA_DIR/food/wheat-prices.json")
+    LATEST=$(jq -r '.[-1].date + " $" + (.[-1].price | tostring) + "/MT"' "$DATA_DIR/food/wheat-prices.json")
+    echo "wheat-prices.json written: ${RECORD_COUNT} records, latest: ${LATEST}"
+  else
+    echo "FRED fetch failed (HTTP ${HTTP_STATUS}) — keeping existing data"
+  fi
+  rm -f "$tmp"
+}
+
+# ── Food events news fetch (Google News RSS + commodity-aware parser) ───────
+fetch_food_events() {
+  echo "Fetching food crisis news from Google News RSS..."
+  local tmp=$(mktemp)
+  local query="wheat+OR+grain+OR+fertilizer+OR+%22food+crisis%22+OR+%22export+ban%22+OR+harvest+OR+famine"
+  local ua="Mozilla/5.0 (compatible; EFCTracker/1.0; +https://efc-tracker.fly.dev)"
+
+  if ! curl -sLf -A "$ua" \
+    "https://news.google.com/rss/search?q=${query}&hl=en&gl=US&ceid=US:en" \
+    -o "$tmp"; then
+    echo "Food news fetch failed — keeping existing food-events.json"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  xmlstarlet sel -t -m "//item" \
+    -v "title" -o "	" \
+    -v "link" -o "	" \
+    -v "pubDate" -o "	" \
+    -v "source" -n \
+    "$tmp" 2>/dev/null | head -25 | \
+  jq -R -s '
+    def guess_commodity:
+      if test("wheat"; "i") then "wheat"
+      elif test("\\bcorn\\b|maize"; "i") then "corn"
+      elif test("rice"; "i") then "rice"
+      elif test("soy|soya|soybean"; "i") then "soy"
+      elif test("fertilizer|urea|potash|phosphate"; "i") then "fertilizer"
+      else "other" end;
+
+    def guess_country:
+      if test("Ukraine|Ukrainian"; "i") then "Ukraine"
+      elif test("Russia|Russian"; "i") then "Russia"
+      elif test("\\bIndia\\b|Indian"; "i") then "India"
+      elif test("\\bChina\\b|Chinese"; "i") then "China"
+      elif test("Argentina|Argentine"; "i") then "Argentina"
+      elif test("Brazil|Brazilian"; "i") then "Brazil"
+      elif test("Egypt|Egyptian"; "i") then "Egypt"
+      elif test("Pakistan"; "i") then "Pakistan"
+      elif test("Indonesia"; "i") then "Indonesia"
+      elif test("Australia|Australian"; "i") then "Australia"
+      elif test("Canada|Canadian"; "i") then "Canada"
+      elif test("\\bUS\\b|U\\.S\\.|United States|American"; "i") then "US"
+      elif test("\\bEU\\b|Europe|European"; "i") then "EU-wide"
+      elif test("Africa|African"; "i") then "Africa"
+      else "" end;
+
+    def guess_region:
+      if test("Europe|EU|UK|France|Germany|Spain|Italy|Ukraine|Russia"; "i") then "Europe"
+      elif test("Asia|China|Japan|India|Pakistan|Indonesia|Pacific|Australia"; "i") then "Asia-Pacific"
+      elif test("Africa|Nigeria|South Africa|Egypt|Kenya|Ethiopia"; "i") then "Africa"
+      elif test("Middle East|Gulf|Saudi|UAE|Qatar|Iran"; "i") then "Middle East"
+      elif test("Latin|Brazil|Mexico|Caribbean|Argentina|Chile"; "i") then "Latin America"
+      else "North America" end;
+
+    def guess_event_type:
+      if test("export ban|export curb|export halt"; "i") then "export_ban"
+      elif test("drought|flood|frost|heatwave|harvest fail"; "i") then "harvest_failure"
+      elif test("price surge|price jump|price spike|surge"; "i") then "price_surge"
+      elif test("supply|shortage|disrupt|crisis"; "i") then "supply_disruption"
+      elif test("policy|subsidy|tariff|sanction|tax"; "i") then "policy"
+      else "supply_disruption" end;
+
+    def guess_severity:
+      if test("famine|crisis|emergency|critical|catastroph"; "i") then "critical"
+      elif test("ban|disrupt|shortage|surge|cut|halt"; "i") then "high"
+      elif test("warn|risk|concern|threat|tighten"; "i") then "medium"
+      else "low" end;
+
+    [split("\n")[] | select(length > 0) | split("\t") | select(length >= 4) |
+    . as $f |
+    {
+      id:           ("FOOD-" + ($f[0] | gsub("[^a-zA-Z0-9]"; "")[0:20])),
+      commodity:    ($f[0] | guess_commodity),
+      region:       ($f[0] | guess_region),
+      country:      ($f[0] | guess_country),
+      event_type:   ($f[0] | guess_event_type),
+      severity:     ($f[0] | guess_severity),
+      summary:      ($f[0] | sub(" - [^-]+$"; "")),
+      source_name:  ($f[3] // "News"),
+      source_url:   ($f[1] // "#"),
+      updated_at:   ($f[2] // "")
+    }] | if length > 0 then . else empty end
+  ' > /tmp/food_events.json 2>/dev/null
+
+  local count=$(jq 'length' /tmp/food_events.json 2>/dev/null || echo 0)
+
+  if [ "$count" -gt 0 ] 2>/dev/null; then
+    cp /tmp/food_events.json "$DATA_DIR/food/food-events.json"
+    echo "food-events.json written: ${count} news items (live)"
+  else
+    echo "No food news items parsed — keeping existing food-events.json"
+  fi
+
+  rm -f "$tmp" /tmp/food_events.json
+}
+
 # ── Initial fetch ────────────────────────────────────────────────────────────
 fetch_fuel_prices
 fetch_oil_prices
 fetch_gas_prices
 fetch_disruption_news
+fetch_wheat_prices
+fetch_food_events
 
 # ── Background refresh every 6 hours ─────────────────────────────────────────
-(while true; do sleep 21600; fetch_fuel_prices; fetch_oil_prices; fetch_gas_prices; fetch_disruption_news; done) &
+(while true; do sleep 21600; fetch_fuel_prices; fetch_oil_prices; fetch_gas_prices; fetch_disruption_news; fetch_wheat_prices; fetch_food_events; done) &
 
 # ── config.js (no API keys needed client-side) ────────────────────────────────
 cat > /usr/share/nginx/html/config.js <<'EOF'
