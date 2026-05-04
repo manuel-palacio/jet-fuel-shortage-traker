@@ -1,6 +1,6 @@
 # EFC Tracker — Energy & Food Crisis Tracker
 
-A single-page dashboard for monitoring jet fuel shortages across European airports, airline disruptions, and live kerosene pricing from EIA. Food-mode tracking (wheat prices, food crisis events) is in active development on the `efc-tracker` branch — see `docs/superpowers/specs/2026-05-03-efc-tracker-design.md`.
+A single-page dashboard for monitoring two crisis domains in parallel: **Energy** (jet fuel, WTI crude, Henry Hub natural gas, plus aviation disruption news) and **Food** (global wheat prices and food crisis news).
 
 Live: **https://efc-tracker.fly.dev**
 
@@ -11,181 +11,189 @@ Live: **https://efc-tracker.fly.dev**
 ```
 efc-tracker/
 ├── public/
-│   ├── index.html          ← SPA shell (HTML + CSS)
-│   ├── app.js              ← Application logic (routing, rendering, data)
-│   ├── favicon.svg         ← Amber flame icon
+│   ├── index.html            ← SPA shell
+│   ├── styles.css            ← All styles (Material-Design tokens, mode tabs, ...)
+│   ├── shared.js             ← EFC namespace: utilities, mode plugin API, routing
+│   ├── energy.js             ← Energy mode plugin (5 views)
+│   ├── food.js               ← Food mode plugin (2 views)
+│   ├── app.js                ← 5-line bootstrap
+│   ├── favicon.svg           ← Amber flame icon
 │   └── data/
-│       └── energy/
-│           ├── airports.json   ← 15 European airport fuel stockpile data
-│           ├── disruptions.json← Disruption events (seed data)
-│           └── fuel-prices.json← EIA fuel price history (seed / live)
+│       ├── energy/
+│       │   ├── airports.json     ← 16 European airport stockpile data
+│       │   ├── disruptions.json  ← Aviation disruption events (live RSS)
+│       │   ├── fuel-prices.json  ← EIA jet fuel history (live)
+│       │   ├── oil-prices.json   ← EIA WTI crude history (live)
+│       │   └── gas-prices.json   ← EIA Henry Hub gas history (live)
+│       └── food/
+│           ├── wheat-prices.json ← FRED PWHEAMTUSDM monthly (live)
+│           └── food-events.json  ← Food crisis events (live RSS)
 ├── .github/
 │   └── workflows/
-│       └── refresh-data.yml← Daily cron: restarts Fly machine to refresh EIA data
-├── Dockerfile              ← nginx:alpine image with curl + jq for server-side EIA fetch
-├── entrypoint.sh           ← Runs at container start; fetches EIA, writes fuel-prices.json
-├── fly.toml                ← Fly.io deployment config (app: efc-tracker, region: arn)
-└── docs/
-    └── superpowers/        ← Design specifications and implementation plans
+│       └── refresh-data.yml  ← Daily cron: restarts Fly machine to refresh data
+├── docs/
+│   └── superpowers/
+│       ├── specs/            ← Design specifications
+│       └── plans/            ← Implementation plans
+├── Dockerfile                ← nginx:alpine + curl + jq + xmlstarlet
+├── entrypoint.sh             ← Container entry: 6 server-side fetchers + nginx
+├── fly.toml                  ← Fly.io deployment (app: efc-tracker, region: arn)
+└── package.json              ← Dev tooling only (live-server)
 ```
 
 ---
 
-## Features
+## Modes
 
-### Views (hash-based routing)
+The app has two top-level modes, switched via the **mode tabs** above the header. Each mode owns its own sidebar, filter bar, and views.
+
+### ⚡ Energy mode
 
 | Route | View | Description |
-|-------|------|-------------|
-| `#overview` | Fleet Overview | KPIs, fuel price chart, cancellation timeline, disruption table |
-| `#airports` | Airport Inventory | Card grid of 15 European airports with cover-day indicators |
-| `#map` | Europe Risk Map | Leaflet.js map with color-coded risk bubbles per airport |
-| `#disruptions` | Disruptions | Full disruption events table (all columns visible) |
-| `#analytics` | Analytics | Fuel price trend, regional breakdown, seasonal demand chart |
+|---|---|---|
+| `#energy/overview` | Fleet Overview | Energy KPIs, jet-fuel chart, cancellation timeline, disruption table |
+| `#energy/airports` | Airport Inventory | 16 European airports with cover-day indicators |
+| `#energy/map` | Europe Risk Map | Leaflet map with color-coded risk bubbles |
+| `#energy/disruptions` | Disruptions | Full disruption events table |
+| `#energy/analytics` | Analytics | Jet fuel trend, regional breakdown, seasonality, **WTI crude**, **Henry Hub gas** |
 
-### Key Features
+Filters: airline, region, country, impact type, severity, search. Plus the **Summer Mode** toggle (+35% demand multiplier, tightened risk thresholds).
 
-- **Supply-focused KPIs** — Avg cover days, airports at risk, fuel price, import risk index, cancellations, critical events
-- **Summer mode toggle** — +35% demand multiplier, tightened risk thresholds (auto-active Jun–Aug)
-- **Live EIA data** — Server-side fetch with 6-hour background refresh
-- **Interactive map** — Leaflet.js with CartoDB dark/light tiles, click-to-detail
-- **Responsive** — Mobile-first with collapsible sidebar, 1–4 column card grids
+### 🌾 Food mode
 
-### Airports Tracked
+| Route | View | Description |
+|---|---|---|
+| `#food/overview` | Food Overview | Wheat KPIs (latest price, MoM change, top affected country), wheat price chart, recent events list |
+| `#food/events` | Food Events | Filterable table of food crisis news |
 
-LHR, FRA, CDG, AMS, MAD, BCN, FCO, MUC, ZRH, VIE, IST, DUB, CPH, OSL, LIS
+Filters: commodity, region, country, event type, severity, search.
+
+Mode preference persists in `localStorage`. Bookmarked legacy URLs (`#overview`, `#analytics`, etc.) silently rewrite to their `#energy/<view>` equivalents.
 
 ---
 
 ## Architecture
 
-### Data Flow
+### Code organization
+
+Three top-level scripts loaded by `index.html`, in order:
+
+```
+shared.js  → window.EFC namespace (DOM helpers, fetchJSON, mode plugin API,
+             hash routing, theme/sidebar/info-popover infrastructure)
+energy.js  → calls EFC.registerMode({ id: 'energy', ... })
+food.js    → calls EFC.registerMode({ id: 'food', ... })
+app.js     → 5-line bootstrap that calls EFC.start() on DOMContentLoaded
+```
+
+`shared.js` is domain-agnostic. Each mode is a self-contained plugin: it declares views, filters, and optional `onThemeChange` / `onSidebarChange` hooks. Adding a third mode is a fourth `<script>` tag and another `EFC.registerMode(...)` call.
+
+### Data flow
 
 ```
 Container start
   └── entrypoint.sh
-        ├── fetch_fuel_prices() — curl EIA API → jq → fuel-prices.json
-        ├── Background loop: re-fetch every 6 hours
+        ├── fetch_fuel_prices()    → energy/fuel-prices.json   (EIA EPJK)
+        ├── fetch_oil_prices()     → energy/oil-prices.json    (EIA EPCWTI)
+        ├── fetch_gas_prices()     → energy/gas-prices.json    (EIA Henry Hub)
+        ├── fetch_disruption_news()→ energy/disruptions.json   (Google News RSS)
+        ├── fetch_wheat_prices()   → food/wheat-prices.json    (FRED PWHEAMTUSDM)
+        ├── fetch_food_events()    → food/food-events.json     (Google News RSS)
+        ├── Background loop: re-fetch all six every 6 hours
         └── Hand off to nginx
 
 Browser loads app
-  └── app.js init()
-        ├── fetch('/data/disruptions.json')
-        ├── fetch('/data/fuel-prices.json')
-        ├── fetch('/data/airports.json')
-        └── Render views based on URL hash
+  └── EFC.start() (after DOMContentLoaded)
+        ├── Read URL hash → pick initial mode
+        ├── Activate mode → mode.init() loads its own JSON files
+        └── Render the view from URL hash
 
 Daily refresh (GitHub Actions cron 06:00 UTC)
   └── flyctl machines restart → triggers entrypoint.sh
 ```
 
-### Key Design Decisions
+### Key design decisions
 
 | Decision | Rationale |
 |---|---|
-| Server-side EIA fetch | EIA API has no CORS headers — direct browser fetch blocked |
-| Static JSON files | Simplest caching primitive; nginx serves with 1h Cache-Control |
-| No localStorage | Server-side cache replaces client-side storage |
-| EIA key in Fly.io secret | Key never reaches the browser |
-| Separate app.js | Clarity — CSS in HTML, logic in JS, data in JSON |
-| Hash routing | SPA navigation without build tooling or framework |
+| Server-side fetchers | EIA / FRED / Google News have no CORS headers — direct browser fetch blocked |
+| Static JSON files | Simplest cache primitive; nginx serves with 1h Cache-Control |
+| API keys in Fly secrets | Keys never reach the browser; `entrypoint.sh` interpolates them server-side |
+| Mode plugin API | Adding a third mode = one `EFC.registerMode(...)` call, no shell changes |
+| Hash routing (`#mode/view`) | SPA navigation without build tooling or framework |
 | Leaflet.js (CDN) | Zero-config interactive maps, dark theme tiles via CartoDB |
-| DOMPurify for all innerHTML | `safeHTML()` centralizes XSS prevention |
-| 6-hour background refresh | Keeps fuel prices current without container restarts |
-
----
-
-## EIA Data Source
-
-| Field | Value |
-|---|---|
-| Endpoint | `/v2/petroleum/pri/spt/data/` |
-| Product | `EPJK` (Kerosene-Type Jet Fuel) |
-| Area | `RGC` (US Gulf Coast) |
-| Frequency | Weekly |
-| Units | $/gallon |
-
-Free API key: https://www.eia.gov/opendata/
-
-> **Note:** Product code is `EPJK`, not `EPD2F` (heating oil). Endpoint is `/pri/spt/` (spot prices).
+| DOMPurify for all innerHTML | `EFC.safeHTML()` is the single chokepoint for XSS prevention |
+| 6-hour background refresh | Keeps data current without container restarts |
+| No build step | Deploy is `docker build` + `fly deploy`. No npm in production. |
 
 ---
 
 ## Data Sources & Limitations
 
-Not all data in this dashboard comes from live APIs. The table below clarifies what is real, what is modelled, and what is static seed data.
-
 | Data | Source | Live? | Notes |
-|------|--------|-------|-------|
-| **Jet fuel prices** | [EIA API v2](https://www.eia.gov/opendata/) | **Yes** — refreshed every 6h | US Gulf Coast Kerosene-Type Jet Fuel spot price (EPJK/RGC). Weekly frequency, $/gallon. Fetched server-side by `entrypoint.sh`. |
-| **Disruption events** | [Google News RSS](https://news.google.com/) | **Yes** — refreshed every 6h | `entrypoint.sh` fetches Google News RSS for fuel disruption keywords, parses with xmlstarlet + jq, extracts airline/country/severity from headlines. Falls back to empty array locally. |
-| **Airport list** | Hand-curated | **No** — static JSON | 16 major European airports selected manually. Coordinates are real (from public aviation databases). |
-| **Storage capacity (ML)** | Modelled estimate | **No** — fabricated | Plausible values based on airport size and hub status. Real fuel storage capacities are commercially sensitive and not publicly available. |
-| **Daily burn (ML/day)** | Modelled estimate | **No** — fabricated | Rough estimates based on airport traffic volume. Not sourced from actual fuel uplift data. |
-| **Cover days** | Derived | Computed | `storage_capacity_ml / daily_burn_ml`. Only as accurate as the two modelled inputs. |
-| **Import dependency** | Modelled estimate | **No** — directionally correct | Based on publicly known refinery and pipeline geography (e.g., Switzerland has no refineries → HIGH). The HIGH/MED/LOW ratings are defensible but not sourced from a specific dataset. |
-| **Import Risk Index** | Computed composite | Computed | Combines import dependency scores, cover-day stress, and fuel price level. Formula in `app.js computeKPIs()`. |
-| **Summer demand multiplier** | IATA estimate | **No** — fixed constant | +35% based on IATA peak-season load factor data. Applied uniformly to all airports when Summer Mode is active. |
-| **Seasonality chart** | Modelled index | **No** — illustrative | Monthly demand index (80–135) showing Jun–Aug peak. Not sourced from per-airport consumption data. |
+|---|---|---|---|
+| **Jet fuel prices** | [EIA API v2](https://www.eia.gov/opendata/) — `EPJK/RGC` | Yes — 6h | US Gulf Coast Kerosene-Type Jet Fuel spot, weekly, $/gallon |
+| **WTI crude prices** | EIA API v2 — `EPCWTI/RWTC` | Yes — 6h | West Texas Intermediate, Cushing OK, daily, $/barrel |
+| **Henry Hub gas prices** | EIA API v2 — `RNGWHHD` | Yes — 6h | Henry Hub LA, daily, $/MMBtu |
+| **Wheat prices** | [FRED API](https://fred.stlouisfed.org/) — `PWHEAMTUSDM` | Yes — 6h (monthly cadence, ~6-week lag) | Global Price of Wheat, $/metric ton (World Bank) |
+| **Aviation disruption events** | [Google News RSS](https://news.google.com/) | Yes — 6h | Headlines parsed via xmlstarlet + jq; airline/severity inferred from text |
+| **Food events** | Google News RSS | Yes — 6h | Headlines parsed with food-domain heuristics (commodity / country / event type / severity) |
+| **Airport list** | Hand-curated | No | 16 major European airports; coordinates from public databases |
+| **Storage capacity (ML)** | Modelled estimate | No | Fabricated based on airport size; real values are commercially confidential |
+| **Daily burn (ML/day)** | Modelled estimate | No | Rough estimates from traffic volume; not real fuel uplift data |
+| **Cover days** | Derived | Computed | `storage_capacity_ml / daily_burn_ml` — only as accurate as the inputs |
+| **Import dependency** | Modelled estimate | No | HIGH/MED/LOW based on public refinery + pipeline geography |
+| **Import Risk Index** | Computed composite | Computed | Combines import dependency, cover-day stress, fuel price level |
+| **Summer demand multiplier** | IATA estimate | No | +35% based on IATA peak-season load factor data |
+| **Seasonality chart** | Modelled index | No | Illustrative monthly demand index 80–135 |
 
-### What would make this production-grade
+### Honest limitations
 
-To move beyond illustrative estimates, you would need:
+- **News parsing is heuristic.** Both aviation and food event tables use regex-based commodity/country/severity inference. Edge cases get miscategorized; the data is best treated as a triage feed, not an authoritative event log.
+- **Wheat data lags.** FRED's PWHEAMTUSDM is monthly with a ~6-week publishing lag. The chart will look like step changes, not a daily wiggling line. This is honest about the source.
+- **No food map equivalent.** The Energy mode has a country/airport map. Food doesn't — wheat data isn't anchored to a single geographic point.
 
-- **Airport fuel inventory** — Data partnerships with airport fuel consortia (e.g., AFQRJOS at Heathrow, Schiphol fuel consortium) or energy intelligence providers (Platts, Argus, Wood Mackenzie)
-- **Live disruption events** — Integration with airline ops feeds, EUROCONTROL, or FlightAware
-- **Per-airport consumption** — Actual fuel uplift volumes from airport authorities or IATA statistics
-- **Regional refinery output** — IEA or national energy agency data on refinery throughput and jet fuel yield
+What would make it production-grade: airport fuel inventory partnerships (AFQRJOS, Schiphol consortium), Platts/Argus pricing, EUROCONTROL / FlightAware feeds, IEA refinery output data, USDA / FAO direct grain feeds.
 
 ---
 
 ## Run Locally
 
-There are three ways to run the dashboard locally, each with different levels of data availability:
+Three options, increasing data fidelity:
 
-### Option 1: Static file server (no API data)
-
-Serves the app with seed/empty data — no Docker, no API keys needed.
+### Option 1: Static file server (no API data, fastest)
 
 ```bash
-# Using Python:
 cd public && python3 -m http.server 8080
 # open http://localhost:8080
-
-# Using npx:
-npx serve public
-# open http://localhost:3000
-
-# Using IntelliJ/WebStorm:
-# Right-click public/index.html → Open in → Browser
-# Or use the built-in HTTP server (port shown in toolbar)
 ```
 
-Fuel prices and disruption news will be empty (seed data). Airport data loads from `public/data/energy/airports.json`.
+Uses the seed JSON files committed to the repo. No Docker, no API keys.
 
 ### Option 2: npm run dev (auto-reload)
 
-Same as Option 1 but with **auto-reload on file change** via `live-server`. Convenient for active UI work.
-
 ```bash
-npm install   # one-time, installs live-server as a devDependency
+npm install   # one-time, installs live-server
 npm run dev
 # open http://localhost:5500
 ```
 
-Edits to any file under `public/` (HTML, CSS, JS, JSON) trigger a browser refresh. No live API data — same seed JSON as Option 1.
+Same as Option 1 with browser auto-reload on file change. Convenient for active UI work.
 
-### Option 3: Docker with live EIA data
-
-Runs the full server-side pipeline — fetches live fuel prices and news at container start.
+### Option 3: Docker with live data
 
 ```bash
 docker build -t efc-tracker .
-docker run -p 8080:80 -e EIA_API_KEY=your_key_here efc-tracker
+docker run -p 8080:80 \
+  -e EIA_API_KEY=your_eia_key \
+  -e FRED_API_KEY=your_fred_key \
+  efc-tracker
 # open http://localhost:8080
 ```
 
-Get a free EIA API key at https://www.eia.gov/opendata/
+Runs the full server-side pipeline. Free API keys:
+- EIA: https://www.eia.gov/opendata/
+- FRED: https://fred.stlouisfed.org/docs/api/api_key.html
 
 ---
 
@@ -195,16 +203,19 @@ Get a free EIA API key at https://www.eia.gov/opendata/
 
 | Secret | Description |
 |---|---|
-| `EIA_API_KEY` | Free EIA API key for live fuel price data |
+| `EIA_API_KEY` | Free EIA API key — powers jet fuel + WTI + Henry Hub fetchers |
+| `FRED_API_KEY` | Free FRED API key — powers wheat price fetcher |
 
 ```bash
-# Set EIA key (one-time):
-fly secrets set EIA_API_KEY=your_key_here --app efc-tracker
+# One-time setup
+fly apps create efc-tracker
+fly secrets set EIA_API_KEY=your_key  --app efc-tracker
+fly secrets set FRED_API_KEY=your_key --app efc-tracker
 
-# Deploy:
+# Deploy
 fly deploy
 
-# Open:
+# Open
 fly open
 ```
 
@@ -212,14 +223,14 @@ fly open
 
 ```bash
 fly logs --app efc-tracker
-# Should show: fuel-prices.json written: N records, latest: YYYY-MM-DD $X.XXX/gal
+# Should show six "<file>.json written: N records" lines within ~30 seconds
 ```
 
 ---
 
 ## Daily Data Refresh
 
-EIA data is fetched at container start and every 6 hours via background loop. The GitHub Actions workflow `.github/workflows/refresh-data.yml` additionally restarts the Fly machine daily at **06:00 UTC**.
+Data is fetched at container start and every 6 hours via a background loop in `entrypoint.sh`. The GitHub Actions workflow `.github/workflows/refresh-data.yml` additionally restarts the Fly machine daily at **06:00 UTC** to force a fresh fetch.
 
 ### Setup (one-time)
 
@@ -227,7 +238,7 @@ EIA data is fetched at container start and every 6 hours via background loop. Th
    ```bash
    fly tokens create deploy -x 999999h --app efc-tracker
    ```
-2. Add as GitHub secret: **Settings → Secrets → Actions** → `FLY_API_TOKEN`
+2. Add it as a GitHub repo secret: **Settings → Secrets → Actions → `FLY_API_TOKEN`**
 
 ---
 
@@ -235,14 +246,16 @@ EIA data is fetched at container start and every 6 hours via background loop. Th
 
 | Layer | Choice |
 |---|---|
-| UI | Vanilla HTML / CSS / JavaScript (no framework) |
-| Charts | [Chart.js 4.4](https://www.chartjs.org/) via jsDelivr CDN |
-| Maps | [Leaflet.js 1.9](https://leafletjs.com/) via unpkg CDN |
-| Sanitization | [DOMPurify 3.1](https://github.com/cure53/DOMPurify) via jsDelivr CDN |
+| UI | Vanilla HTML / CSS / JavaScript (no framework, no build) |
+| Charts | [Chart.js 4.4](https://www.chartjs.org/) via jsDelivr |
+| Maps | [Leaflet.js 1.9](https://leafletjs.com/) via unpkg |
+| Sanitization | [DOMPurify 3.1](https://github.com/cure53/DOMPurify) via jsDelivr |
 | Fonts | Google Fonts — Space Grotesk (display), Inter (UI), JetBrains Mono (data) |
 | Icons | Material Symbols Outlined |
 | Hosting | [Fly.io](https://fly.io) via nginx:alpine Docker image |
-| Data | [EIA API v2](https://www.eia.gov/opendata/) — EPJK/RGC spot price |
+| Server-side fetch | curl + jq + xmlstarlet in `entrypoint.sh` |
+| Data sources | EIA v2 API · FRED API · Google News RSS |
 | Refresh | GitHub Actions cron + entrypoint.sh background loop |
+| Dev tooling | live-server (only — `npm run dev`); not used in production |
 
-No build step. No framework. No npm.
+No framework. No bundler. No transpilation.
