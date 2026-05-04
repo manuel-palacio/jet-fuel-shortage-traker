@@ -948,3 +948,44 @@
       .mode-tabs { padding:var(--space-2) var(--space-4); }
       .mode-tab { padding:var(--space-2) var(--space-3); font-size:12px; }
     }
+
+    /* ======================================================
+       FOOD MODE — recent events list + events table cells
+       (severity badges reuse the existing .badge.{low,medium,high,critical})
+       ====================================================== */
+    #food-recent-events { padding:var(--space-2) var(--space-5) var(--space-5); }
+    .event-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:var(--space-2); }
+    .event-list li {
+      display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;
+      padding:var(--space-3) var(--space-4);
+      background:var(--surface-container-low);
+      border:1px solid var(--outline-variant);
+      border-radius:var(--radius);
+      transition:border-color var(--transition);
+    }
+    .event-list li:hover { border-color:var(--outline); background:var(--surface-container); }
+    .event-list a {
+      flex:1 1 60%; min-width:0;
+      color:var(--text-primary); font-weight:500; font-size:13.5px; line-height:1.45;
+      text-decoration:none; overflow-wrap:anywhere;
+    }
+    .event-list a:hover { color:var(--accent); text-decoration:underline; }
+    .event-meta {
+      font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);
+      letter-spacing:.02em; white-space:nowrap;
+    }
+    /* Food events table summary cell — wrap long headlines */
+    .cell-summary {
+      max-width:520px; line-height:1.5;
+      color:var(--text-primary); font-size:13px;
+    }
+    /* Empty state for food events table */
+    .empty-cell {
+      padding:var(--space-8) var(--space-6); text-align:center;
+      color:var(--text-muted); font-style:italic;
+    }
+    /* Empty state for the recent events list (a <p>) */
+    #food-recent-events .empty {
+      padding:var(--space-5); text-align:center;
+      color:var(--text-muted); font-style:italic;
+    }

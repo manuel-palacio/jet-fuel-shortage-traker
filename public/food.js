@@ -125,7 +125,7 @@
         + '<td>' + escapeHTML(e.country || '—') + '</td>'
         + '<td>' + escapeHTML(e.region || '—') + '</td>'
         + '<td>' + escapeHTML((e.event_type || '').replace(/_/g, ' ')) + '</td>'
-        + '<td><span class="sev sev-' + escapeHTML(e.severity || 'low') + '">' + escapeHTML(e.severity || '') + '</span></td>'
+        + '<td><span class="badge ' + escapeHTML(e.severity || 'low') + '"><span class="badge-dot" aria-hidden="true"></span>' + escapeHTML(e.severity || '') + '</span></td>'
         + '<td class="cell-summary">' + escapeHTML(e.summary || '') + '</td>'
         + '<td><a href="' + escapeHTML(e.source_url || '#') + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(e.source_name || 'source') + '</a></td>'
         + '</tr>';
@@ -143,7 +143,7 @@
     }
     const html = '<ul class="event-list">' + top.map(function (e) {
       return '<li>'
-        + '<span class="sev sev-' + escapeHTML(e.severity) + '">' + escapeHTML(e.severity) + '</span> '
+        + '<span class="badge ' + escapeHTML(e.severity) + '"><span class="badge-dot" aria-hidden="true"></span>' + escapeHTML(e.severity) + '</span> '
         + '<a href="' + escapeHTML(e.source_url) + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(e.summary) + '</a> '
         + '<span class="event-meta">' + escapeHTML(e.country || '') + ' · ' + escapeHTML(e.source_name || '') + '</span>'
         + '</li>';
